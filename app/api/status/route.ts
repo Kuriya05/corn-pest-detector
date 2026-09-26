@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { getModels } from '@/lib/gemini';
-import { pests } from '@/lib/data/pests';
-import { diseases } from '@/lib/data/diseases';
-import { deficiencies } from '@/lib/data/fertilizer';
+import { getStats } from '@/lib/store';
+import { isAuthConfigured, getSession } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const root = process.cwd();
+  const [stats, session] = await Promise.all([getStats(), getSession()]);
   const yoloModel = resolve(/*turbopackIgnore: true*/ root, process.env.YOLO_MODEL_PATH || '../best.pt');
   const yoloScript = resolve(/*turbopackIgnore: true*/ root, process.env.YOLO_SCRIPT_PATH || '../detect_model.py');
 
@@ -25,13 +27,11 @@ export async function GET() {
         existsSync(join(root, '..', '.venv', 'bin', 'python')),
       confidence: process.env.YOLO_CONF || '0.35',
     },
+    auth: { configured: isAuthConfigured(), role: session?.role ?? 'guest' },
     dataset: {
-      pests: pests.length,
-      diseases: diseases.length,
-      deficiencies: deficiencies.length,
-      chemicals:
-        pests.reduce((n, p) => n + p.chemicals.length, 0) +
-        diseases.reduce((n, d) => n + d.chemicals.length, 0),
+      total: stats.collections.reduce((n, c) => n + c.total, 0),
+      collections: stats.collections,
+      updatedAt: stats.updatedAt,
     },
   });
 }

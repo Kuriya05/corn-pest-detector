@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Bug, Search, ChevronDown, AlertTriangle, Sprout, Shield, FlaskConical, Eye, Clock } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { PageHeader, Card, Chip, Callout, SeverityBadge, BulletList, SourceList, ChemicalTable, EmptyState } from '@/components/ui';
-import { pests } from '@/lib/data/pests';
+import { pests as seedPests } from '@/lib/data/pests';
+import { useCollection } from '@/lib/use-collection';
+import type { Pest } from '@/lib/data/types';
 import type { Severity } from '@/lib/data/types';
 
 const filters: { id: 'all' | Severity; label: string }[] = [
@@ -16,6 +18,7 @@ const filters: { id: 'all' | Severity; label: string }[] = [
 ];
 
 export default function PestsPage() {
+  const { items: pests } = useCollection<Pest>('pests', seedPests);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | Severity>('all');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -23,7 +26,7 @@ export default function PestsPage() {
   // เปิดรายการที่ถูกลิงก์มาจากหน้าสแกนโดยอัตโนมัติ
   useEffect(() => {
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
-    if (hash && pests.some((p) => p.id === hash)) {
+    if (hash) {
       setOpenId(hash);
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     }
@@ -38,18 +41,18 @@ export default function PestsPage() {
       return [p.nameTh, p.nameEn, p.scientific, p.summary, ...(p.aliases ?? []), ...p.damage]
         .join(' ').toLowerCase().includes(q);
     });
-  }, [query, filter]);
+  }, [pests, query, filter]);
 
   const counts = useMemo(
     () => Object.fromEntries(filters.map((f) => [f.id, f.id === 'all' ? pests.length : pests.filter((p) => p.severity === f.id).length])),
-    [],
+    [pests],
   );
 
   return (
     <SiteShell>
       <PageHeader
         eyebrow="Pest Library"
-        title="คลังแมลงศัตรูข้าวโพด"
+        title={`คลังแมลงศัตรูข้าวโพด (${pests.length} ชนิด)`}
         description="ข้อมูลแมลงศัตรูข้าวโพดที่พบในประเทศไทย พร้อมจุดสังเกต ระยะที่เข้าทำลาย เกณฑ์ตัดสินใจพ่นสาร และอัตราการใช้สารตามคำแนะนำกรมวิชาการเกษตร"
         icon={<Bug size={26} strokeWidth={2.3} />}
       />

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ไฟล์ข้อมูลที่แอดมินแก้ไข — เก็บใน git ไว้ด้วย จะได้ย้อนดูได้ว่าใครแก้อะไร
+# (ถ้าไม่ต้องการ ให้เพิ่มบรรทัด data/overrides.json)

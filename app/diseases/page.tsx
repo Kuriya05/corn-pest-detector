@@ -10,7 +10,9 @@ import SiteShell from '@/components/site-shell';
 import {
   PageHeader, Card, Chip, Callout, SeverityBadge, BulletList, SourceList, ChemicalTable, EmptyState,
 } from '@/components/ui';
-import { diseases } from '@/lib/data/diseases';
+import { diseases as seedDiseases } from '@/lib/data/diseases';
+import { useCollection } from '@/lib/use-collection';
+import type { Disease } from '@/lib/data/types';
 import type { Finding } from '@/lib/analysis';
 
 const kinds = [
@@ -65,13 +67,14 @@ const symptomGroups: { part: string; items: string[] }[] = [
 const plantParts = ['ใบ', 'ลำต้น', 'ยอด', 'ฝัก', 'ราก', 'ทั้งต้น'];
 
 export default function DiseasesPage() {
+  const { items: diseases } = useCollection<Disease>('diseases', seedDiseases);
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<(typeof kinds)[number]['id']>('all');
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
-    if (hash && diseases.some((d) => d.id === hash)) {
+    if (hash && hash !== 'advisor') {
       setOpenId(hash);
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     } else if (hash === 'advisor') {
@@ -86,13 +89,13 @@ export default function DiseasesPage() {
       if (!q) return true;
       return [d.nameTh, d.nameEn, d.pathogen, d.summary, ...d.symptoms].join(' ').toLowerCase().includes(q);
     });
-  }, [query, kind]);
+  }, [diseases, query, kind]);
 
   return (
     <SiteShell>
       <PageHeader
         eyebrow="Disease Library"
-        title="คลังโรคข้าวโพด"
+        title={`คลังโรคข้าวโพด (${diseases.length} โรค)`}
         description="โรคข้าวโพดที่พบในประเทศไทย พร้อมวิธีแยกโรคที่อาการคล้ายกัน สภาพแวดล้อมที่ทำให้เกิดโรค และคำแนะนำการป้องกันกำจัดจากกรมวิชาการเกษตร"
         icon={<Leaf size={26} strokeWidth={2.3} />}
       />
@@ -100,7 +103,7 @@ export default function DiseasesPage() {
       <SymptomAdvisor />
 
       <div className="mt-10 mb-5 space-y-3">
-        <h2 className="text-[20px] font-extrabold text-leaf-900">ค้นหาโรคในคลังข้อมูล</h2>
+        <h2 className="text-[20px] font-extrabold text-leaf-900">ค้นหาโรคในคลังข้อมูล ({diseases.length} โรค)</h2>
         <label className="relative block">
           <Search size={19} className="absolute left-4 top-1/2 -translate-y-1/2 text-leaf-400 pointer-events-none" />
           <input

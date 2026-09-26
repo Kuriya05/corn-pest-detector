@@ -6,12 +6,15 @@ import SiteShell from '@/components/site-shell';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList } from '@/components/ui';
 import {
   soilTypePlans, omLevels, pLevels, kLevels, formulas, buildSoilTestPlan, kgFertilizer,
-  deficiencies, nutrientUptake, fertilizerNotes, fertilizerWarnings, fertilizerSources,
+  deficiencies as seedDeficiencies, nutrientUptake, fertilizerNotes, fertilizerWarnings, fertilizerSources,
 } from '@/lib/data/fertilizer';
+import { useCollection } from '@/lib/use-collection';
+import type { Deficiency } from '@/lib/data/fertilizer';
 
 const nf = (n: number) => (Math.round(n * 10) / 10).toLocaleString('th-TH');
 
 export default function FertilizerPage() {
+  const { items: deficiencies } = useCollection<Deficiency>('deficiencies', seedDeficiencies);
   const [tab, setTab] = useState<'soil' | 'test' | 'convert'>('soil');
 
   useEffect(() => {
@@ -46,7 +49,7 @@ export default function FertilizerPage() {
       {tab === 'convert' && <ConvertTab />}
 
       <section className="mt-12">
-        <h2 className="text-[22px] font-extrabold text-leaf-900 mb-1.5">สังเกตอาการขาดธาตุอาหาร</h2>
+        <h2 className="text-[22px] font-extrabold text-leaf-900 mb-1.5">สังเกตอาการขาดธาตุอาหาร ({deficiencies.length} ธาตุ)</h2>
         <p className="text-[14px] text-leaf-700 mb-5">
           อาการขาดธาตุหลายอย่างหน้าตาคล้ายโรค ดูจุดสังเกตด้านล่างเพื่อแยกให้ออกก่อนตัดสินใจซื้อสารเคมี
         </p>

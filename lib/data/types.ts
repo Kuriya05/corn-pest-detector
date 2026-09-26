@@ -95,3 +95,75 @@ export type Disease = {
   sources: SourceRef[];
   matchKeywords: string[];
 };
+
+/** ชีวภัณฑ์และศัตรูธรรมชาติ */
+export type Biological = {
+  id: string;
+  nameTh: string;
+  nameEn: string;
+  scientific?: string;
+  /** ประเภทของชีวภัณฑ์ */
+  kind: 'เชื้อรา' | 'แบคทีเรีย' | 'ไวรัส' | 'แมลงตัวห้ำ' | 'แมลงตัวเบียน' | 'ไส้เดือนฝอย' | 'โปรโตซัว' | 'สารสกัดจากพืช';
+  summary: string;
+  /** ใช้ควบคุมศัตรูพืชชนิดใด */
+  controls: string[];
+  /** มีคำแนะนำอัตราใช้สำหรับข้าวโพดโดยตรงหรือไม่ */
+  maizeSpecific: boolean;
+  /** อัตราใช้หรืออัตราปล่อย */
+  rate: string;
+  howTo: string[];
+  cautions: string[];
+  sources: SourceRef[];
+  matchKeywords: string[];
+};
+
+/** วัชพืชในไร่ข้าวโพด */
+export type Weed = {
+  id: string;
+  nameTh: string;
+  localNames?: string[];
+  nameEn: string;
+  scientific: string;
+  group: 'ใบแคบ' | 'ใบกว้าง' | 'กก';
+  lifeCycle: 'ฤดูเดียว' | 'ข้ามปี';
+  /** ความถี่ที่พบจากการสำรวจแปลงข้าวโพดของกรมวิชาการเกษตร */
+  frequency?: string;
+  summary: string;
+  /** ลักษณะที่ใช้จำแนกในแปลง */
+  identify: string[];
+  impact: string;
+  cultural: string[];
+  /** สารกำจัดวัชพืชที่ได้ผล */
+  herbicides: string[];
+  sources: SourceRef[];
+  matchKeywords: string[];
+};
+
+/** พันธุ์ข้าวโพด */
+export type Variety = {
+  id: string;
+  nameTh: string;
+  code?: string;
+  /** ชนิดของข้าวโพด */
+  cropType: 'เลี้ยงสัตว์' | 'หวาน' | 'ข้าวเหนียว' | 'เทียน' | 'ฝักอ่อน';
+  /** ประเภทพันธุ์ */
+  hybridType: 'ลูกผสมเดี่ยว' | 'ลูกผสมสามทาง' | 'ผสมเปิด' | 'พันธุ์รับรอง';
+  org: string;
+  certifiedYear?: string;
+  /** ผลผลิต */
+  yield?: string;
+  yieldDrought?: string;
+  maturityDays?: string;
+  silkingDays?: string;
+  plantHeight?: string;
+  earHeight?: string;
+  /** ความต้านทานโรค — คีย์คือชื่อโรค */
+  resistance: { disease: string; level: 'ต้านทาน' | 'ต้านทานปานกลาง' | 'อ่อนแอ' | 'ไม่ระบุ' }[];
+  strengths: string[];
+  recommendedFor: string;
+  /** แหล่งติดต่อขอเมล็ดพันธุ์ */
+  seedSource?: string;
+  notes?: string[];
+  sources: SourceRef[];
+  matchKeywords: string[];
+};

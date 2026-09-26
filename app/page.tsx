@@ -5,12 +5,18 @@ import Link from 'next/link';
 import {
   ScanLine, Bug, Leaf, FlaskConical, CalendarDays, ArrowRight, Sparkles,
   AlertTriangle, Info, TrendingUp, Stethoscope, BookOpen, Clock, ChevronRight,
+  Sprout, Wheat, ShieldCheck, Search, SprayCan,
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { Card } from '@/components/ui';
 import { alertsForMonth, thaiMonths } from '@/lib/data/alerts';
 import { pests } from '@/lib/data/pests';
 import { diseases } from '@/lib/data/diseases';
+import { weeds } from '@/lib/data/weeds';
+import { varieties } from '@/lib/data/varieties';
+import { biologicals } from '@/lib/data/biologicals';
+import { allChemicals } from '@/lib/data/chemicals';
+import { deficiencies } from '@/lib/data/fertilizer';
 import { economics } from '@/lib/data/calendar';
 
 export default function HomePage() {
@@ -59,18 +65,6 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
-            {[
-              { k: `${pests.length}`, v: 'แมลงศัตรูข้าวโพด' },
-              { k: `${diseases.length}`, v: 'โรคข้าวโพด' },
-              { k: '8', v: 'อาการขาดธาตุอาหาร' },
-            ].map((s) => (
-              <div key={s.v}>
-                <dt className="text-[26px] font-extrabold text-corn-300 leading-none tabular-nums">{s.k}</dt>
-                <dd className="text-[12.5px] text-leaf-100 mt-1">{s.v}</dd>
-              </div>
-            ))}
-          </dl>
         </div>
       </section>
 
@@ -154,6 +148,36 @@ export default function HomePage() {
             icon={<CalendarDays size={22} />}
             title="ปฏิทินดูแลไร่"
             desc="ทำอะไรวันไหน ตั้งแต่เตรียมดินถึงเก็บเกี่ยว ช่วงวิกฤตน้ำ วัชพืช และข้อมูลต้นทุน–ราคารับซื้อ"
+          />
+          <FeatureCard
+            href="/weeds"
+            icon={<Sprout size={22} />}
+            title="คลังวัชพืชในไร่"
+            desc={`${weeds.length} ชนิดที่พบจริงในแปลงข้าวโพดไทย พร้อมวิธีจำแนก ช่วงวิกฤตที่ต้องปลอดวัชพืช และสารกำจัดที่ได้ผล`}
+          />
+          <FeatureCard
+            href="/varieties"
+            icon={<Wheat size={22} />}
+            title="พันธุ์ข้าวโพดแนะนำ"
+            desc={`${varieties.length} พันธุ์รับรอง พร้อมผลผลิต อายุเก็บเกี่ยว ความต้านทานโรค และตารางเลือกพันธุ์ให้ตรงกับปัญหาในไร่`}
+          />
+          <FeatureCard
+            href="/biologicals"
+            icon={<ShieldCheck size={22} />}
+            title="ชีวภัณฑ์ & ศัตรูธรรมชาติ"
+            desc={`${biologicals.length} รายการควบคุมศัตรูพืชแบบปลอดภัยต่อคน ผึ้ง และแมลงดี พร้อมอัตราใช้ตามคำแนะนำทางราชการ`}
+          />
+          <FeatureCard
+            href="/chemicals"
+            icon={<SprayCan size={22} />}
+            title="คลังสารป้องกันกำจัด"
+            desc={`${allChemicals.length} สารออกฤทธิ์ ค้นจากชื่อสารหรือชื่อศัตรูพืช พร้อมอัตราใช้ กลุ่มสลับสาร และสารที่กฎหมายห้ามใช้แล้ว`}
+          />
+          <FeatureCard
+            href="/knowledge"
+            icon={<Search size={22} />}
+            title="ค้นหาข้ามทุกคลัง"
+            desc="พิมพ์อาการที่เห็นครั้งเดียว ค้นได้ทั้งแมลง โรค วัชพืช พันธุ์ ชีวภัณฑ์ และสารป้องกันกำจัดพร้อมกัน"
           />
           <FeatureCard
             href="/history"

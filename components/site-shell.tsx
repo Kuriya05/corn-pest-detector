@@ -2,16 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Home, ScanLine, Bug, Leaf, FlaskConical, CalendarDays, Clock, BookOpen,
   HelpCircle, Menu, X, Sprout, ShieldAlert, ExternalLink, ChevronRight, MoreHorizontal,
+  Wheat, ShieldCheck, LogOut, LogIn, SprayCan,
 } from 'lucide-react';
 import { navItems, moreItems, type NavItem } from './nav-items';
 
 const icons: Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>> = {
   home: Home, scan: ScanLine, bug: Bug, leaf: Leaf, flask: FlaskConical,
   calendar: CalendarDays, clock: Clock, book: BookOpen, help: HelpCircle,
+  sprout: Sprout, wheat: Wheat, shield: ShieldCheck, spray: SprayCan,
 };
 
 function Icon({ name, ...rest }: { name: string; size?: number; className?: string; strokeWidth?: number }) {
@@ -27,11 +29,19 @@ export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const openAdmin = () => {
-    const pass = window.prompt('กรุณากรอกรหัสผ่านผู้ดูแลระบบ');
-    if (pass === null) return;
-    if (pass === '310' || pass === '368') window.location.href = '/admin';
-    else window.alert('รหัสผ่านไม่ถูกต้อง');
+  const [role, setRole] = useState<'admin' | 'guest'>('guest');
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.role === 'admin') setRole('admin'); })
+      .catch(() => {});
+  }, [pathname]);
+
+  const logout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    setRole('guest');
+    window.location.href = '/';
   };
 
   return (
@@ -67,8 +77,9 @@ export function SiteHeader() {
                   key={item.href}
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
+                  style={active && item.cat ? { backgroundColor: item.cat } : undefined}
                   className={`px-3 py-2 rounded-xl text-[14px] font-bold transition focus-ring ${
-                    active ? 'bg-leaf-700 text-white shadow-sm' : 'text-leaf-800 hover:bg-leaf-50'
+                    active ? 'text-white shadow-sm bg-leaf-700' : 'text-leaf-800 hover:bg-leaf-50'
                   }`}
                 >
                   {item.label}
@@ -77,10 +88,19 @@ export function SiteHeader() {
             })}
           </nav>
 
+          {role === 'admin' && (
+            <Link
+              href="/admin"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-leaf-100 px-3 py-1.5 text-[12.5px] font-extrabold text-leaf-800 hover:bg-leaf-200 transition focus-ring"
+            >
+              <ShieldCheck size={14} /> ผู้ดูแล
+            </Link>
+          )}
+
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="ml-auto lg:ml-0 inline-flex items-center gap-2 rounded-xl border border-leaf-200 bg-white px-3 py-2 text-[14px] font-bold text-leaf-800 hover:bg-leaf-50 transition focus-ring"
+            className="ml-auto inline-flex items-center gap-2 rounded-xl border border-leaf-200 bg-white px-3 py-2 text-[14px] font-bold text-leaf-800 hover:bg-leaf-50 transition focus-ring"
             aria-label="เปิดเมนู"
           >
             <Menu size={18} />
@@ -123,14 +143,38 @@ export function SiteHeader() {
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => { setOpen(false); openAdmin(); }}
-              className="mt-6 w-full flex items-center gap-3 rounded-2xl border border-soil-200 bg-soil-50 px-4 py-3 text-left hover:bg-soil-100 transition focus-ring"
-            >
-              <ShieldAlert size={18} className="text-soil-700 shrink-0" />
-              <span className="font-bold text-[14px] text-soil-900">เข้าสู่ระบบผู้ดูแล</span>
-            </button>
+            {role === 'admin' ? (
+              <div className="mt-6 space-y-2">
+                <Link
+                  href="/admin"
+                  onClick={() => setOpen(false)}
+                  className="w-full flex items-center gap-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-3 hover:bg-leaf-100 transition focus-ring"
+                >
+                  <ShieldCheck size={18} className="text-leaf-700 shrink-0" />
+                  <span className="font-bold text-[14px] text-leaf-900">จัดการข้อมูล (ผู้ดูแล)</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => { setOpen(false); logout(); }}
+                  className="w-full flex items-center gap-3 rounded-2xl border border-soil-200 bg-soil-50 px-4 py-3 text-left hover:bg-soil-100 transition focus-ring"
+                >
+                  <LogOut size={18} className="text-soil-700 shrink-0" />
+                  <span className="font-bold text-[14px] text-soil-900">ออกจากระบบ</span>
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="mt-6 w-full flex items-center gap-3 rounded-2xl border border-soil-200 bg-soil-50 px-4 py-3 hover:bg-soil-100 transition focus-ring"
+              >
+                <LogIn size={18} className="text-soil-700 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold text-[14px] text-soil-900">เข้าสู่ระบบผู้ดูแล</span>
+                  <span className="block text-[12px] text-soil-700">เกษตรกรทั่วไปไม่ต้องเข้าสู่ระบบ</span>
+                </span>
+              </Link>
+            )}
           </div>
         </div>
       )}

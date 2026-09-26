@@ -1,43 +1,43 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------
-   ระบบสีและโทเคนของเว็บ — โทนไร่ข้าวโพด: เขียวใบ + เหลืองฝัก + ดินอุ่น
-   ออกแบบให้ตัวอักษรใหญ่ คอนทราสต์สูง อ่านง่ายกลางแดดบนมือถือ
+   ระบบสีของเว็บ — โทนไร่ข้าวโพด สดใสแต่ยังอ่านง่ายกลางแดด
+   เขียวใบเป็นสีหลัก เหลืองฝักเป็นสีเน้น และมีสีประจำหมวดของแต่ละคลังข้อมูล
 ----------------------------------------------------------------*/
 @theme {
-  --color-leaf-50:  #f1faf3;
-  --color-leaf-100: #ddf3e2;
-  --color-leaf-200: #bde7c8;
-  --color-leaf-300: #8ed3a3;
-  --color-leaf-400: #56b777;
-  --color-leaf-500: #2f9c58;
-  --color-leaf-600: #1f7d45;
-  --color-leaf-700: #1a6339;
-  --color-leaf-800: #174f2f;
-  --color-leaf-900: #144128;
-  --color-leaf-950: #082516;
+  --color-leaf-50:  #f0fdf4;
+  --color-leaf-100: #dcfce7;
+  --color-leaf-200: #bbf7d0;
+  --color-leaf-300: #86efac;
+  --color-leaf-400: #4ade80;
+  --color-leaf-500: #22c55e;
+  --color-leaf-600: #16a34a;
+  --color-leaf-700: #15803d;
+  --color-leaf-800: #166534;
+  --color-leaf-900: #14532d;
+  --color-leaf-950: #052e16;
 
-  --color-corn-50:  #fffaeb;
-  --color-corn-100: #fdf0c8;
-  --color-corn-200: #fbdf8c;
-  --color-corn-300: #f9c750;
-  --color-corn-400: #f7b027;
-  --color-corn-500: #f18d0d;
-  --color-corn-600: #d56908;
-  --color-corn-700: #b14a0b;
-  --color-corn-800: #903a10;
-  --color-corn-900: #763110;
+  --color-corn-50:  #fffbeb;
+  --color-corn-100: #fef3c7;
+  --color-corn-200: #fde68a;
+  --color-corn-300: #fcd34d;
+  --color-corn-400: #fbbf24;
+  --color-corn-500: #f59e0b;
+  --color-corn-600: #d97706;
+  --color-corn-700: #b45309;
+  --color-corn-800: #92400e;
+  --color-corn-900: #78350f;
 
-  --color-soil-50:  #faf7f2;
-  --color-soil-100: #f2ece0;
-  --color-soil-200: #e4d8c3;
-  --color-soil-300: #d1bd9c;
-  --color-soil-400: #bc9e74;
-  --color-soil-500: #ad8859;
-  --color-soil-600: #94714d;
-  --color-soil-700: #785a41;
-  --color-soil-800: #644b3a;
-  --color-soil-900: #554032;
+  --color-soil-50:  #fdf8f3;
+  --color-soil-100: #f7ede0;
+  --color-soil-200: #ecd9c2;
+  --color-soil-300: #ddbd98;
+  --color-soil-400: #cb9d6f;
+  --color-soil-500: #bc8552;
+  --color-soil-600: #a56d46;
+  --color-soil-700: #87563c;
+  --color-soil-800: #6f4735;
+  --color-soil-900: #5c3c2f;
 
   --font-sans: var(--font-thai), ui-sans-serif, system-ui, sans-serif;
 
@@ -45,21 +45,32 @@
   --radius-5xl: 2.5rem;
 }
 
+/* สีประจำหมวด — ใช้กับการ์ด ไอคอน และแถบหัวของแต่ละคลังข้อมูล */
 :root {
-  --page-bg: #f6f8f4;
-  --ink: #16241c;
-  --ink-soft: #4a5b50;
+  --page-bg: #f4faf6;
+  --ink: #14251b;
+  --ink-soft: #476054;
   color-scheme: light;
+
+  --cat-pest: #ea580c;
+  --cat-disease: #d97706;
+  --cat-fert: #0284c7;
+  --cat-calendar: #059669;
+  --cat-weed: #65a30d;
+  --cat-variety: #7c3aed;
+  --cat-bio: #0d9488;
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
   background:
-    radial-gradient(900px 500px at 10% -8%, #ddf3e2 0%, transparent 62%),
-    radial-gradient(760px 460px at 96% 4%, #fdf0c8 0%, transparent 58%),
+    radial-gradient(1000px 560px at 8% -10%, #d6f5e0 0%, transparent 60%),
+    radial-gradient(820px 500px at 98% 2%, #fef0c7 0%, transparent 56%),
+    radial-gradient(700px 480px at 50% 108%, #e4f7ec 0%, transparent 62%),
     var(--page-bg);
   background-attachment: fixed;
   color: var(--ink);
@@ -68,22 +79,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* หัวข้อภาษาไทยอ่านง่ายขึ้นเมื่อบรรทัดไม่ชิดกันเกินไป */
 h1, h2, h3, h4 {
   line-height: 1.45;
   letter-spacing: -0.005em;
 }
 
-/* ซ่อนแถบเลื่อนแนวนอนของชิปตัวกรอง แต่ยังเลื่อนได้ */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* การ์ดกระจกที่ใช้ซ้ำทั้งเว็บ */
 @utility card-glass {
-  background-color: rgb(255 255 255 / 0.78);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgb(255 255 255 / 0.9);
-  box-shadow: 0 1px 2px rgb(20 65 40 / 0.04), 0 12px 30px -18px rgb(20 65 40 / 0.35);
+  background-color: rgb(255 255 255 / 0.86);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(255 255 255 / 0.95);
+  box-shadow:
+    0 1px 2px rgb(20 83 45 / 0.05),
+    0 10px 28px -16px rgb(20 83 45 / 0.28);
 }
 
 @utility focus-ring {
@@ -91,6 +101,20 @@ h1, h2, h3, h4 {
   &:focus-visible {
     outline: 3px solid var(--color-leaf-500);
     outline-offset: 2px;
+  }
+}
+
+/* แถบสีบาง ๆ ด้านบนการ์ด บอกว่าเป็นข้อมูลหมวดไหน */
+@utility cat-bar {
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--cat, #22c55e), transparent 88%);
   }
 }
 
@@ -108,6 +132,7 @@ h1, h2, h3, h4 {
 .animate-sweep { animation: sweep 1.6s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;

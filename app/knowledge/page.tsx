@@ -2,17 +2,23 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, Search, Bug, Leaf, FlaskConical, ArrowRight } from 'lucide-react';
+import { BookOpen, Search, Bug, Leaf, FlaskConical, ArrowRight, Sprout, Wheat, ShieldCheck, SprayCan } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { PageHeader, Card, Chip, EmptyState, SeverityBadge } from '@/components/ui';
-import { pests } from '@/lib/data/pests';
-import { diseases } from '@/lib/data/diseases';
-import { deficiencies } from '@/lib/data/fertilizer';
-import type { Severity } from '@/lib/data/types';
+import { pests as seedPests } from '@/lib/data/pests';
+import { diseases as seedDiseases } from '@/lib/data/diseases';
+import { deficiencies as seedDeficiencies } from '@/lib/data/fertilizer';
+import { weeds as seedWeeds } from '@/lib/data/weeds';
+import { varieties as seedVarieties } from '@/lib/data/varieties';
+import { biologicals as seedBio } from '@/lib/data/biologicals';
+import { allChemicals as seedChemicals, type ChemicalEntry } from '@/lib/data/chemicals';
+import { useCollection } from '@/lib/use-collection';
+import type { Severity, Pest, Disease, Weed, Variety, Biological } from '@/lib/data/types';
+import type { Deficiency } from '@/lib/data/fertilizer';
 
 type Row = {
   id: string;
-  kind: 'pest' | 'disease' | 'deficiency';
+  kind: 'pest' | 'disease' | 'deficiency' | 'weed' | 'variety' | 'biological' | 'chemical';
   title: string;
   subtitle: string;
   summary: string;
@@ -22,12 +28,23 @@ type Row = {
 };
 
 const kindMeta = {
-  pest: { label: 'แมลงศัตรูพืช', icon: Bug, cls: 'bg-rose-100 text-rose-700' },
-  disease: { label: 'โรคพืช', icon: Leaf, cls: 'bg-orange-100 text-orange-800' },
+  pest: { label: 'แมลงศัตรูพืช', icon: Bug, cls: 'bg-orange-100 text-orange-800' },
+  disease: { label: 'โรคพืช', icon: Leaf, cls: 'bg-amber-100 text-amber-900' },
   deficiency: { label: 'ขาดธาตุอาหาร', icon: FlaskConical, cls: 'bg-sky-100 text-sky-800' },
+  weed: { label: 'วัชพืช', icon: Sprout, cls: 'bg-lime-100 text-lime-900' },
+  variety: { label: 'พันธุ์ข้าวโพด', icon: Wheat, cls: 'bg-violet-100 text-violet-900' },
+  biological: { label: 'ชีวภัณฑ์', icon: ShieldCheck, cls: 'bg-teal-100 text-teal-900' },
+  chemical: { label: 'สารป้องกันกำจัด', icon: SprayCan, cls: 'bg-rose-100 text-rose-900' },
 } as const;
 
 export default function KnowledgePage() {
+  const { items: pests } = useCollection<Pest>('pests', seedPests);
+  const { items: diseases } = useCollection<Disease>('diseases', seedDiseases);
+  const { items: deficiencies } = useCollection<Deficiency>('deficiencies', seedDeficiencies);
+  const { items: weeds } = useCollection<Weed>('weeds', seedWeeds);
+  const { items: varieties } = useCollection<Variety>('varieties', seedVarieties);
+  const { items: biologicals } = useCollection<Biological>('biologicals', seedBio);
+  const { items: chemicals } = useCollection<ChemicalEntry>('chemicals', seedChemicals);
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<'all' | Row['kind']>('all');
 
@@ -50,7 +67,33 @@ export default function KnowledgePage() {
       href: `/fertilizer#deficiency-${x.id}`,
       haystack: [x.nutrient, x.symbol, x.quickSign, x.cause, x.fix, ...x.symptoms].join(' ').toLowerCase(),
     })),
-  ], []);
+    ...weeds.map((w) => ({
+      id: w.id, kind: 'weed' as const, title: w.nameTh,
+      subtitle: `${w.nameEn} · ${w.group} · ${w.lifeCycle}`, summary: w.summary,
+      href: `/weeds#${w.id}`,
+      haystack: [w.nameTh, w.nameEn, w.scientific, w.summary, ...(w.localNames ?? []), ...w.identify, w.impact].join(' ').toLowerCase(),
+    })),
+    ...varieties.map((v) => ({
+      id: v.id, kind: 'variety' as const, title: v.nameTh,
+      subtitle: `ข้าวโพด${v.cropType} · ${v.hybridType} · ${v.org}`,
+      summary: v.yield ? `ผลผลิต ${v.yield}` : v.recommendedFor,
+      href: `/varieties#${v.id}`,
+      haystack: [v.nameTh, v.code ?? '', v.org, v.recommendedFor, ...v.strengths, ...v.resistance.map((r) => `${r.disease} ${r.level}`)].join(' ').toLowerCase(),
+    })),
+    ...biologicals.map((b) => ({
+      id: b.id, kind: 'biological' as const, title: b.nameTh,
+      subtitle: `${b.nameEn} · ${b.kind}`, summary: b.summary,
+      href: `/biologicals#${b.id}`,
+      haystack: [b.nameTh, b.nameEn, b.scientific ?? '', b.summary, ...b.controls, b.rate].join(' ').toLowerCase(),
+    })),
+    ...chemicals.map((c) => ({
+      id: c.id, kind: 'chemical' as const, title: c.nameTh,
+      subtitle: `${c.nameEn} · ${c.category}${c.group ? ` · ${c.group}` : ''}`,
+      summary: c.restricted ? (c.restrictedReason ?? 'สารที่ห้ามใช้') : (c.mode ?? ''),
+      href: `/chemicals#${c.id}`,
+      haystack: [c.nameTh, c.nameEn, c.chemClass ?? '', c.group ?? '', c.mode ?? '', ...(c.matchKeywords ?? []), ...c.uses.map((u) => `${u.target} ${u.rate}`)].join(' ').toLowerCase(),
+    })),
+  ], [pests, diseases, deficiencies, weeds, varieties, biologicals, chemicals]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -61,8 +104,8 @@ export default function KnowledgePage() {
     <SiteShell>
       <PageHeader
         eyebrow="Knowledge Base"
-        title="คลังความรู้รวม"
-        description="ค้นหาข้ามทุกหมวดพร้อมกัน — แมลงศัตรูพืช โรคข้าวโพด และอาการขาดธาตุอาหาร"
+        title={`คลังความรู้รวม ${rows.length} รายการ`}
+        description="พิมพ์อาการที่เห็นครั้งเดียว ค้นได้ทั้งแมลง โรค วัชพืช พันธุ์ข้าวโพด ชีวภัณฑ์ สารป้องกันกำจัด และอาการขาดธาตุอาหาร"
         icon={<BookOpen size={26} strokeWidth={2.3} />}
       />
 
@@ -70,7 +113,7 @@ export default function KnowledgePage() {
         <Search size={19} className="absolute left-4 top-1/2 -translate-y-1/2 text-leaf-400 pointer-events-none" />
         <input
           type="search" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
-          placeholder="พิมพ์อาการที่เห็น เช่น ใบเหลือง แผลยาว ยอดกุด ผงสีขาว ฝักเน่า"
+          placeholder="พิมพ์สิ่งที่เห็น เช่น ใบเหลือง แผลยาว ยอดกุด ยางขาว ทนแล้ง หนอนกระทู้"
           className="w-full rounded-2xl bg-white ring-1 ring-leaf-200 pl-12 pr-4 py-4 text-[16px] placeholder:text-leaf-400 focus-ring"
         />
       </label>
