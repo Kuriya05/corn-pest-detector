@@ -1,69 +1,263 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useMemo } from 'react';
+import Link from 'next/link';
+import {
+  ScanLine, Bug, Leaf, FlaskConical, CalendarDays, ArrowRight, Sparkles,
+  AlertTriangle, Info, TrendingUp, Stethoscope, BookOpen, Clock, ChevronRight,
+} from 'lucide-react';
+import SiteShell from '@/components/site-shell';
+import { Card } from '@/components/ui';
+import { alertsForMonth, thaiMonths } from '@/lib/data/alerts';
+import { pests } from '@/lib/data/pests';
+import { diseases } from '@/lib/data/diseases';
+import { economics } from '@/lib/data/calendar';
+
+export default function HomePage() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const alerts = useMemo(() => alertsForMonth(month), [month]);
+
+  const topPrice = economics.prices.filter((p) => p.moisture === '14.5%');
+  const priceRange = `${Math.min(...topPrice.map((p) => p.price)).toFixed(2)} – ${Math.max(...topPrice.map((p) => p.price)).toFixed(2)}`;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <SiteShell>
+      {/* ---------- Hero ---------- */}
+      <section className="relative overflow-hidden rounded-5xl bg-leaf-800 text-white px-6 py-10 sm:px-10 sm:py-14 animate-rise">
+        <div className="absolute -right-16 -top-20 w-72 h-72 rounded-full bg-corn-400/25 blur-3xl pointer-events-none" />
+        <div className="absolute -left-20 -bottom-24 w-80 h-80 rounded-full bg-leaf-400/25 blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-2xl">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-bold backdrop-blur">
+            <Sparkles size={13} className="text-corn-300" />
+            มหาวิทยาลัยแม่โจ้ · สำหรับเกษตรกรผู้ปลูกข้าวโพด
+          </span>
+
+          <h1 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-tight">
+            ถ่ายรูปใบข้าวโพด
+            <br className="hidden sm:block" />
+            รู้เลยว่าเป็นโรคอะไร ต้องทำยังไง
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-3.5 text-[15px] sm:text-[16px] text-leaf-100 leading-relaxed">
+            ระบบ AI ช่วยวินิจฉัยโรคและแมลงศัตรูข้าวโพดจากภาพถ่าย พร้อมคำแนะนำการป้องกันกำจัด
+            อัตราการใช้สาร สูตรปุ๋ย และปฏิทินดูแลแปลง อ้างอิงคำแนะนำกรมวิชาการเกษตร
           </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/detect"
+              className="inline-flex items-center gap-2 rounded-2xl bg-corn-400 px-6 py-3.5 font-extrabold text-leaf-900 shadow-lg hover:bg-corn-300 transition focus-ring"
+            >
+              <ScanLine size={20} /> เริ่มสแกนวินิจฉัย
+            </Link>
+            <Link
+              href="/diseases#advisor"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-6 py-3.5 font-bold text-white backdrop-blur hover:bg-white/25 transition focus-ring"
+            >
+              <Stethoscope size={19} /> ไม่มีรูป? วินิจฉัยจากอาการ
+            </Link>
+          </div>
+
+          <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
+            {[
+              { k: `${pests.length}`, v: 'แมลงศัตรูข้าวโพด' },
+              { k: `${diseases.length}`, v: 'โรคข้าวโพด' },
+              { k: '8', v: 'อาการขาดธาตุอาหาร' },
+            ].map((s) => (
+              <div key={s.v}>
+                <dt className="text-[26px] font-extrabold text-corn-300 leading-none tabular-nums">{s.k}</dt>
+                <dd className="text-[12.5px] text-leaf-100 mt-1">{s.v}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* ---------- เตือนภัยประจำเดือน ---------- */}
+      {alerts.length > 0 && (
+        <section className="mt-8">
+          <h2 className="flex items-center gap-2 text-[20px] font-extrabold text-leaf-900 mb-1">
+            <AlertTriangle size={21} className="text-corn-600" />
+            เฝ้าระวังในเดือน{thaiMonths[month - 1]}
+          </h2>
+          <p className="text-[13.5px] text-leaf-600 mb-4">
+            อ้างอิงช่วงระบาดที่ระบุในเอกสารกรมวิชาการเกษตร — ให้เดินสำรวจแปลงจริงประกอบด้วยทุกครั้ง
+          </p>
+
+          <div className="grid gap-3.5 md:grid-cols-2">
+            {alerts.map((a) => {
+              const tone = {
+                danger: 'bg-rose-50 ring-rose-200 text-rose-900',
+                warn: 'bg-corn-50 ring-corn-200 text-corn-900',
+                info: 'bg-leaf-50 ring-leaf-200 text-leaf-900',
+              }[a.tone];
+              const iconTone = { danger: 'text-rose-600', warn: 'text-corn-600', info: 'text-leaf-600' }[a.tone];
+
+              return (
+                <Link
+                  key={a.title}
+                  href={a.href}
+                  className={`group rounded-4xl ring-1 p-5 transition hover:-translate-y-0.5 focus-ring ${tone}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={`shrink-0 mt-0.5 ${iconTone}`}>
+                      {a.tone === 'info' ? <Info size={19} /> : <AlertTriangle size={19} />}
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="font-extrabold text-[15.5px] mb-1 flex items-center gap-1.5">
+                        {a.title}
+                        <ChevronRight size={16} className="opacity-50 group-hover:translate-x-0.5 transition" />
+                      </h3>
+                      <p className="text-[13.5px] leading-relaxed opacity-90">{a.detail}</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ---------- เมนูหลัก ---------- */}
+      <section className="mt-10">
+        <h2 className="text-[20px] font-extrabold text-leaf-900 mb-4">เลือกสิ่งที่ต้องการ</h2>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <FeatureCard
+            href="/detect"
+            icon={<ScanLine size={24} />}
+            title="สแกนวินิจฉัยจากภาพ"
+            desc="ถ่ายรูปใบ ลำต้น หรือฝักที่มีอาการ ให้ AI วิเคราะห์ว่าเป็นโรค แมลง หรือขาดธาตุอาหาร พร้อมตีกรอบจุดที่พบบนภาพ"
+            primary
+          />
+          <FeatureCard
+            href="/pests"
+            icon={<Bug size={22} />}
+            title="คลังแมลงศัตรูข้าวโพด"
+            desc={`${pests.length} ชนิดที่พบในไทย พร้อมจุดสังเกต เกณฑ์ตัดสินใจพ่นสาร และอัตราใช้ตามกรมวิชาการเกษตร`}
+          />
+          <FeatureCard
+            href="/diseases"
+            icon={<Leaf size={22} />}
+            title="คลังโรคข้าวโพด"
+            desc={`${diseases.length} โรคสำคัญ พร้อมวิธีแยกโรคที่อาการคล้ายกัน และระบบวินิจฉัยจากอาการโดยไม่ต้องใช้รูป`}
+          />
+          <FeatureCard
+            href="/fertilizer"
+            icon={<FlaskConical size={22} />}
+            title="สูตรปุ๋ย & คำนวณอัตราใส่"
+            desc="คำนวณปุ๋ยจากค่าวิเคราะห์ดินหรือชนิดดิน บอกเป็นกิโลกรัมต่อไร่ พร้อมคู่มือสังเกตอาการขาดธาตุอาหาร"
+          />
+          <FeatureCard
+            href="/calendar"
+            icon={<CalendarDays size={22} />}
+            title="ปฏิทินดูแลไร่"
+            desc="ทำอะไรวันไหน ตั้งแต่เตรียมดินถึงเก็บเกี่ยว ช่วงวิกฤตน้ำ วัชพืช และข้อมูลต้นทุน–ราคารับซื้อ"
+          />
+          <FeatureCard
+            href="/history"
+            icon={<Clock size={22} />}
+            title="ประวัติการสแกน"
+            desc="ดูผลตรวจย้อนหลังที่บันทึกไว้ในเครื่องนี้ เพื่อติดตามว่าอาการในแปลงดีขึ้นหรือแย่ลง"
+          />
         </div>
-      </main>
-    </div>
+      </section>
+
+      {/* ---------- ราคา ---------- */}
+      <section className="mt-10">
+        <Card className="bg-leaf-800/95! ring-0 text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="grid place-items-center w-11 h-11 rounded-2xl bg-white/15 text-corn-300 shrink-0">
+                <TrendingUp size={21} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-corn-300">ราคารับซื้อข้าวโพดเลี้ยงสัตว์</p>
+                <p className="text-[13px] text-leaf-100">สำนักงานเศรษฐกิจการเกษตร · {economics.priceAsOf}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 sm:ml-auto">
+              <div className="rounded-2xl bg-white/12 px-4 py-2.5">
+                <p className="text-[11.5px] text-leaf-100">ความชื้นไม่เกิน 14.5%</p>
+                <p className="text-[17px] font-extrabold tabular-nums text-corn-300">{priceRange} บาท/กก.</p>
+              </div>
+              <div className="rounded-2xl bg-white/12 px-4 py-2.5">
+                <p className="text-[11.5px] text-leaf-100">ต้นทุน (สศก. 2569)</p>
+                <p className="text-[17px] font-extrabold tabular-nums">7.03 บาท/กก.</p>
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/calendar#"
+            className="mt-4 inline-flex items-center gap-1.5 text-[13.5px] font-bold text-corn-300 hover:text-corn-200 focus-ring rounded"
+          >
+            ดูราคาทุกจุดรับซื้อและข้อมูลต้นทุน <ArrowRight size={15} />
+          </Link>
+        </Card>
+      </section>
+
+      {/* ---------- ความรู้เพิ่มเติม ---------- */}
+      <section className="mt-10">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/help"
+            className="group rounded-4xl card-glass p-6 transition hover:-translate-y-0.5 focus-ring"
+          >
+            <span className="grid place-items-center w-11 h-11 rounded-2xl bg-corn-100 text-corn-800 mb-3">
+              <BookOpen size={21} />
+            </span>
+            <h3 className="font-extrabold text-[16.5px] text-leaf-900 mb-1.5 flex items-center gap-1.5">
+              คู่มือการใช้งาน
+              <ChevronRight size={16} className="text-leaf-400 group-hover:translate-x-0.5 transition" />
+            </h3>
+            <p className="text-[13.5px] text-leaf-700">
+              วิธีถ่ายรูปให้ AI วิเคราะห์แม่น ข้อจำกัดของระบบ และควรเชื่อผลวิเคราะห์แค่ไหน
+            </p>
+          </Link>
+
+          <div className="rounded-4xl bg-soil-50 ring-1 ring-soil-200 p-6">
+            <span className="grid place-items-center w-11 h-11 rounded-2xl bg-soil-200 text-soil-800 mb-3">
+              <AlertTriangle size={21} />
+            </span>
+            <h3 className="font-extrabold text-[16.5px] text-soil-900 mb-1.5">ระบบนี้ไม่ได้แทนเจ้าหน้าที่เกษตร</h3>
+            <p className="text-[13.5px] text-soil-800 leading-relaxed">
+              AI ช่วยคัดกรองและให้ข้อมูลเบื้องต้นได้เร็ว แต่การตัดสินใจใช้สารเคมีควรยืนยันกับเจ้าหน้าที่ส่งเสริมการเกษตรในพื้นที่
+              และอ่านฉลากผลิตภัณฑ์ทุกครั้ง เพราะเปอร์เซ็นต์สูตรในท้องตลาดอาจต่างจากที่ระบุในคำแนะนำ
+            </p>
+          </div>
+        </div>
+      </section>
+    </SiteShell>
+  );
+}
+
+function FeatureCard({
+  href, icon, title, desc, primary,
+}: {
+  href: string; icon: React.ReactNode; title: string; desc: string; primary?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group relative overflow-hidden rounded-4xl p-6 transition hover:-translate-y-0.5 focus-ring ${
+        primary ? 'md:col-span-2 bg-leaf-700 text-white shadow-lg' : 'card-glass'
+      }`}
+    >
+      <span
+        className={`grid place-items-center w-12 h-12 rounded-2xl mb-3.5 ${
+          primary ? 'bg-corn-400 text-leaf-900' : 'bg-leaf-100 text-leaf-700'
+        }`}
+      >
+        {icon}
+      </span>
+      <h3 className={`font-extrabold mb-1.5 flex items-center gap-1.5 ${primary ? 'text-[20px]' : 'text-[16.5px] text-leaf-900'}`}>
+        {title}
+        <ChevronRight size={17} className="opacity-50 group-hover:translate-x-0.5 transition" />
+      </h3>
+      <p className={`text-[13.5px] leading-relaxed ${primary ? 'text-leaf-100 max-w-lg' : 'text-leaf-700'}`}>{desc}</p>
+    </Link>
   );
 }

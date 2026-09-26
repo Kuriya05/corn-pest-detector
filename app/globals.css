@@ -1,26 +1,121 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------
+   ระบบสีและโทเคนของเว็บ — โทนไร่ข้าวโพด: เขียวใบ + เหลืองฝัก + ดินอุ่น
+   ออกแบบให้ตัวอักษรใหญ่ คอนทราสต์สูง อ่านง่ายกลางแดดบนมือถือ
+----------------------------------------------------------------*/
+@theme {
+  --color-leaf-50:  #f1faf3;
+  --color-leaf-100: #ddf3e2;
+  --color-leaf-200: #bde7c8;
+  --color-leaf-300: #8ed3a3;
+  --color-leaf-400: #56b777;
+  --color-leaf-500: #2f9c58;
+  --color-leaf-600: #1f7d45;
+  --color-leaf-700: #1a6339;
+  --color-leaf-800: #174f2f;
+  --color-leaf-900: #144128;
+  --color-leaf-950: #082516;
+
+  --color-corn-50:  #fffaeb;
+  --color-corn-100: #fdf0c8;
+  --color-corn-200: #fbdf8c;
+  --color-corn-300: #f9c750;
+  --color-corn-400: #f7b027;
+  --color-corn-500: #f18d0d;
+  --color-corn-600: #d56908;
+  --color-corn-700: #b14a0b;
+  --color-corn-800: #903a10;
+  --color-corn-900: #763110;
+
+  --color-soil-50:  #faf7f2;
+  --color-soil-100: #f2ece0;
+  --color-soil-200: #e4d8c3;
+  --color-soil-300: #d1bd9c;
+  --color-soil-400: #bc9e74;
+  --color-soil-500: #ad8859;
+  --color-soil-600: #94714d;
+  --color-soil-700: #785a41;
+  --color-soil-800: #644b3a;
+  --color-soil-900: #554032;
+
+  --font-sans: var(--font-thai), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-4xl: 2rem;
+  --radius-5xl: 2.5rem;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --page-bg: #f6f8f4;
+  --ink: #16241c;
+  --ink-soft: #4a5b50;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(900px 500px at 10% -8%, #ddf3e2 0%, transparent 62%),
+    radial-gradient(760px 460px at 96% 4%, #fdf0c8 0%, transparent 58%),
+    var(--page-bg);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-size: 16.5px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* หัวข้อภาษาไทยอ่านง่ายขึ้นเมื่อบรรทัดไม่ชิดกันเกินไป */
+h1, h2, h3, h4 {
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+}
+
+/* ซ่อนแถบเลื่อนแนวนอนของชิปตัวกรอง แต่ยังเลื่อนได้ */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* การ์ดกระจกที่ใช้ซ้ำทั้งเว็บ */
+@utility card-glass {
+  background-color: rgb(255 255 255 / 0.78);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgb(255 255 255 / 0.9);
+  box-shadow: 0 1px 2px rgb(20 65 40 / 0.04), 0 12px 30px -18px rgb(20 65 40 / 0.35);
+}
+
+@utility focus-ring {
+  outline: none;
+  &:focus-visible {
+    outline: 3px solid var(--color-leaf-500);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-rise { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes sweep {
+  0%   { transform: translateY(-110%); opacity: 0; }
+  35%  { opacity: 1; }
+  100% { transform: translateY(110%); opacity: 0; }
+}
+.animate-sweep { animation: sweep 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
 }
