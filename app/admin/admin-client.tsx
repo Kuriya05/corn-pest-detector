@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ShieldCheck, Search, Plus, Pencil, Trash2, RotateCcw, Save, X, Loader2,
+  ChevronDown, ShieldCheck, Search, Plus, Pencil, Trash2, RotateCcw, Save, X, Loader2,
   Download, History, Database, AlertTriangle, CheckCircle2, LogOut, BadgeCheck,
   ImagePlus, Trash, Eye,
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
-import { PageHeader, Card, Chip, Callout, EmptyState } from '@/components/ui';
+import { PageHeader, Card, Callout, EmptyState } from '@/components/ui';
 import { COLLECTIONS, collectionLabels, titleField, type CollectionName } from '@/lib/collections';
 import { fieldLabels, longTextFields } from './field-labels';
 
@@ -208,17 +208,29 @@ export default function AdminClient({ username }: { username: string }) {
         </div>
       )}
 
-      {/* แถบเลือกหมวด */}
-      <div className="mt-6 flex flex-wrap gap-2">
-        {COLLECTIONS.map((c) => (
-          <Chip
-            key={c} active={collection === c}
-            onClick={() => { setCollection(c); setEditing(null); setQuery(''); }}
-            count={stats?.collections.find((x) => x.name === c)?.total}
+      {/* เลือกหมวด (dropdown) */}
+      <div className="mt-6">
+        <label htmlFor="collection-select" className="block text-[13px] font-semibold text-leaf-700 mb-1.5">
+          เลือกหมวดข้อมูล
+        </label>
+        <div className="relative">
+          <select
+            id="collection-select"
+            value={collection}
+            onChange={(e) => { setCollection(e.target.value as CollectionName); setEditing(null); setQuery(''); }}
+            className="w-full appearance-none rounded-2xl border border-leaf-200 bg-white px-4 py-3 pr-11 text-[15px] font-semibold text-leaf-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-leaf-500 cursor-pointer"
           >
-            {collectionLabels[c]}
-          </Chip>
-        ))}
+            {COLLECTIONS.map((c) => {
+              const n = stats?.collections.find((x) => x.name === c)?.total;
+              return (
+                <option key={c} value={c}>
+                  {collectionLabels[c]}{typeof n === 'number' ? ` (${n})` : ''}
+                </option>
+              );
+            })}
+          </select>
+          <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-leaf-600" />
+        </div>
       </div>
 
       {/* สถิติ */}
