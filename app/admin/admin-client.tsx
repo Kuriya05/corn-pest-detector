@@ -65,12 +65,57 @@ export default function AdminClient({ username }: { username: string }) {
 
   const titleOf = (it: Item) => String(it[titleField[collection]] ?? it.id);
 
+  /** โครงสร้างเริ่มต้นของแต่ละหมวด ใช้เมื่อยังไม่มีข้อมูลตั้งต้นในหน้า */
+  const BLANK_TEMPLATES: Record<CollectionName, Record<string, unknown>> = {
+    pests: {
+      nameTh: '', nameEn: '', scientific: '', aliases: [],
+      severity: 'low', summary: '', identify: [], stage: '',
+      damage: [], threshold: '', season: '', cultural: [],
+      biological: [], chemicals: [], warnings: [], sources: [], matchKeywords: [],
+    },
+    diseases: {
+      nameTh: '', nameEn: '', pathogen: '', kind: 'เชื้อรา',
+      severity: 'low', summary: '', symptoms: [], distinguish: '',
+      conditions: '', stage: '', lossImpact: '', resistantVarieties: [],
+      cultural: [], chemicals: [], warnings: [], sources: [], matchKeywords: [],
+    },
+    biologicals: {
+      nameTh: '', nameEn: '', scientific: '', kind: 'เชื้อรา',
+      summary: '', controls: [], maizeSpecific: false, rate: '',
+      howTo: [], cautions: [], sources: [], matchKeywords: [],
+    },
+    weeds: {
+      nameTh: '', localNames: [], nameEn: '', scientific: '',
+      group: 'ใบแคบ', lifeCycle: 'ฤดูเดียว', frequency: '',
+      summary: '', identify: [], impact: '', cultural: [],
+      herbicides: [], sources: [], matchKeywords: [],
+    },
+    varieties: {
+      nameTh: '', code: '', cropType: 'เลี้ยงสัตว์', hybridType: 'ลูกผสมเดี่ยว',
+      org: '', certifiedYear: '', yield: '', yieldDrought: '',
+      maturityDays: '', silkingDays: '', plantHeight: '', earHeight: '',
+      resistance: [], strengths: [], recommendedFor: '', seedSource: '',
+      notes: [], sources: [], matchKeywords: [],
+    },
+    deficiencies: {
+      nutrient: '', symbol: '', color: '', quickSign: '',
+      cause: '', fix: [], sources: [],
+    },
+    chemicals: {
+      nameTh: '', nameEn: '', category: '', chemClass: '',
+      mode: '', formulations: '', uses: [], timing: '',
+      restricted: false, restrictedReason: '', sources: [], matchKeywords: [],
+    },
+  };
+
   function blankItem(): Item {
     const template = items.find((i) => i.official) ?? items[0];
     // สร้าง id แบบสุ่มเพื่อกันซ้ำ: prefix-timestamp-random
     const pre = collection.slice(0, 4);
     const randId = `${pre}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    const blank: Item = { id: randId, images: [] };
+    // ใช้ template จาก items ที่โหลดมา หรือ fallback เป็นโครงสร้างคงที่ตามหมวด
+    const fallback = BLANK_TEMPLATES[collection] ?? {};
+    const blank: Item = { id: randId, images: [], ...fallback };
     if (template) {
       for (const [k, v] of Object.entries(template)) {
         if (k === 'official' || k === 'edited' || k === 'id') continue;
