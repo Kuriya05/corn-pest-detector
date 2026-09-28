@@ -24,6 +24,8 @@ export interface Db {
 
 const PG_URL =
   process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.POSTGRES_URL_NON_POOLING ||
   process.env.DATABASE_URL ||
   process.env.SUPABASE_DB_URL ||
   '';
@@ -37,7 +39,8 @@ let _db: Db | null = null;
 let _initialized = false;
 
 function makePostgres(): Db {
-  const url = PG_URL.replace(/[?&]supa=[^&]*/g, '');
+  // ตัด query params (เช่น ?pgbouncer=true&supa=...) ที่ postgres.js ไม่รู้จักออก
+  const url = PG_URL.split('?')[0];
   const sql = postgres(url, {
     ssl: 'require',
     prepare: false,       // จำเป็นสำหรับ Supabase pooler (transaction mode)
