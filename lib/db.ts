@@ -1,77 +1,126 @@
 /**
- * lib/db.ts — SQLite client
- * - Production (Vercel): ใช้ Turso ผ่าน TURSO_DATABASE_URL + TURSO_AUTH_TOKEN
- * - Local dev: ใช้ file:../database/corn-pest.db
- * - Fallback: in-memory (ข้อมูล seed ยังแสดงได้ แต่ไม่บันทึก)
+ * lib/db.ts — ชั้นฐานข้อมูล
+ * - Production (Vercel): Supabase Postgres ผ่าน POSTGRES_URL (ได้อัตโนมัติจาก Vercel ↔ Supabase integration)
+ * - Local dev: SQLite ไฟล์ ../database/corn-pest.db
+ *
+ * ทั้งสองแบบใช้ interface เดียวกัน: execute({ sql, args }) / batch([...])
+ * SQL เขียนด้วย placeholder `?` แล้วแปลงเป็น $1, $2 ... ให้ Postgres อัตโนมัติ
  */
+import postgres from 'postgres';
 import { createClient, type Client } from '@libsql/client';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 
-let _client: Client | null = null;
-let _initialized = false;
+type Arg = string | number | null;
+export type Stmt = { sql: string; args?: Arg[] };
+export type Row = Record<string, unknown>;
+export type Result = { rows: Row[] };
 
-export function getClient(): Client {
-  if (!_client) {
-    const tursoUrl   = process.env.TURSO_DATABASE_URL;
-    const tursoToken = process.env.TURSO_AUTH_TOKEN;
-
-    if (tursoUrl) {
-      // Production: Turso serverless SQLite
-      _client = createClient({ url: tursoUrl, authToken: tursoToken });
-    } else {
-      // Local dev: ไฟล์ SQLite ในเครื่อง
-      try {
-        const DB_DIR  = join(process.cwd(), '..', 'database');
-        const DB_PATH = join(DB_DIR, 'corn-pest.db');
-        mkdirSync(DB_DIR, { recursive: true });
-        _client = createClient({ url: `file:${DB_PATH}` });
-      } catch {
-        // Fallback: in-memory (เช่น Vercel ไม่มี Turso env)
-        _client = createClient({ url: 'file::memory:?cache=shared' });
-      }
-    }
-  }
-  return _client;
+export interface Db {
+  kind: 'postgres' | 'sqlite';
+  execute(stmt: Stmt | string): Promise<Result>;
+  batch(stmts: Stmt[], mode?: 'write' | 'read'): Promise<void>;
 }
 
-/** เรียกครั้งแรกเพื่อสร้างตาราง */
+const PG_URL =
+  process.env.POSTGRES_URL ||
+  process.env.DATABASE_URL ||
+  process.env.SUPABASE_DB_URL ||
+  '';
+
+function toPg(sql: string): string {
+  let i = 0;
+  return sql.replace(/\?/g, () => `$${++i}`);
+}
+
+let _db: Db | null = null;
+let _initialized = false;
+
+function makePostgres(): Db {
+  const url = PG_URL.replace(/[?&]supa=[^&]*/g, '');
+  const sql = postgres(url, {
+    ssl: 'require',
+    prepare: false,       // จำเป็นสำหรับ Supabase pooler (transaction mode)
+    max: 1,               // serverless: 1 connection ต่อ instance
+    idle_timeout: 20,
+    connect_timeout: 15,
+  });
+  return {
+    kind: 'postgres',
+    async execute(stmt) {
+      const s = typeof stmt === 'string' ? { sql: stmt, args: [] } : stmt;
+      const rows = await sql.unsafe(toPg(s.sql), (s.args ?? []) as never[]);
+      return { rows: rows as unknown as Row[] };
+    },
+    async batch(stmts) {
+      await sql.begin(async (tx) => {
+        for (const s of stmts) await tx.unsafe(toPg(s.sql), (s.args ?? []) as never[]);
+      });
+    },
+  };
+}
+
+function makeSqlite(): Db {
+  let client: Client;
+  try {
+    const dir = join(process.cwd(), '..', 'database');
+    mkdirSync(dir, { recursive: true });
+    client = createClient({ url: `file:${join(dir, 'corn-pest.db')}` });
+  } catch {
+    client = createClient({ url: 'file::memory:?cache=shared' });
+  }
+  return {
+    kind: 'sqlite',
+    async execute(stmt) {
+      const rs = await client.execute(stmt as never);
+      return { rows: rs.rows as unknown as Row[] };
+    },
+    async batch(stmts) {
+      await client.batch(stmts.map((s) => ({ sql: s.sql, args: s.args ?? [] })), 'write');
+    },
+  };
+}
+
+export function getClient(): Db {
+  if (!_db) _db = PG_URL ? makePostgres() : makeSqlite();
+  return _db;
+}
+
+/** สร้างตารางถ้ายังไม่มี (เรียกอัตโนมัติ ไม่ต้องไปสร้างเองใน Supabase) */
 export async function ensureSchema(): Promise<void> {
   if (_initialized) return;
+  const db = getClient();
+
+  const auditId = db.kind === 'postgres'
+    ? 'id BIGSERIAL PRIMARY KEY'
+    : 'id INTEGER PRIMARY KEY AUTOINCREMENT';
+
+  await db.batch([
+    {
+      sql: `CREATE TABLE IF NOT EXISTS items (
+        collection  TEXT NOT NULL,
+        item_id     TEXT NOT NULL,
+        is_seed     INTEGER NOT NULL DEFAULT 0,
+        is_deleted  INTEGER NOT NULL DEFAULT 0,
+        data        TEXT NOT NULL,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL,
+        created_by  TEXT,
+        updated_by  TEXT,
+        PRIMARY KEY (collection, item_id)
+      )`,
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS audit (
+        ${auditId},
+        at          TEXT NOT NULL,
+        "by"        TEXT NOT NULL,
+        action      TEXT NOT NULL,
+        collection  TEXT NOT NULL,
+        item_id     TEXT NOT NULL,
+        label       TEXT NOT NULL
+      )`,
+    },
+  ]);
   _initialized = true;
-
-  const client = getClient();
-  const schemaSql = `
-    CREATE TABLE IF NOT EXISTS items (
-      collection  TEXT NOT NULL,
-      item_id     TEXT NOT NULL,
-      is_seed     INTEGER NOT NULL DEFAULT 0,
-      is_deleted  INTEGER NOT NULL DEFAULT 0,
-      data        TEXT NOT NULL,
-      created_at  TEXT NOT NULL,
-      updated_at  TEXT NOT NULL,
-      created_by  TEXT,
-      updated_by  TEXT,
-      PRIMARY KEY (collection, item_id)
-    );
-    CREATE TABLE IF NOT EXISTS audit (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      at          TEXT NOT NULL,
-      by          TEXT NOT NULL,
-      action      TEXT NOT NULL,
-      collection  TEXT NOT NULL,
-      item_id     TEXT NOT NULL,
-      label       TEXT NOT NULL
-    );
-  `;
-
-  const statements = schemaSql
-    .split(';')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .map((sql) => ({ sql }));
-
-  if (statements.length > 0) {
-    await client.batch(statements, 'write');
-  }
 }

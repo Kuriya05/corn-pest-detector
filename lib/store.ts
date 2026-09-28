@@ -147,7 +147,7 @@ export async function saveItem(
       args: [name, item.id, isSeed, JSON.stringify(item), now, now, exists ? null : by, by],
     },
     {
-      sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO audit (at, "by", action, collection, item_id, label) VALUES (?, ?, ?, ?, ?, ?)`,
       args: [now, by, action, name, item.id, labelOf(name, item)],
     },
   ], 'write');
@@ -190,7 +190,7 @@ export async function deleteItem(
         args: [name, id, now, now, null, by],
       },
       {
-        sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, 'delete', ?, ?, ?)`,
+        sql: `INSERT INTO audit (at, "by", action, collection, item_id, label) VALUES (?, ?, 'delete', ?, ?, ?)`,
         args: [now, by, name, id, label],
       },
     ], 'write');
@@ -203,7 +203,7 @@ export async function deleteItem(
         args: [name, id],
       },
       {
-        sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, 'delete', ?, ?, ?)`,
+        sql: `INSERT INTO audit (at, "by", action, collection, item_id, label) VALUES (?, ?, 'delete', ?, ?, ?)`,
         args: [now, by, name, id, label],
       },
     ], 'write');
@@ -234,7 +234,7 @@ export async function restoreItem(
       args: [name, id],
     },
     {
-      sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, 'restore', ?, ?, ?)`,
+      sql: `INSERT INTO audit (at, "by", action, collection, item_id, label) VALUES (?, ?, 'restore', ?, ?, ?)`,
       args: [now, by, name, id, labelOf(name, seed)],
     },
   ], 'write');
@@ -271,7 +271,7 @@ export async function getStats() {
   );
 
   const auditRs = await client.execute(
-    'SELECT at, by, action, collection, item_id as id, label FROM audit ORDER BY id DESC LIMIT 50'
+    'SELECT at, "by" AS "by", action, collection, item_id AS id, label FROM audit ORDER BY audit.id DESC LIMIT 50'
   );
   const audit = auditRs.rows as unknown as AuditEntry[];
 
@@ -286,8 +286,8 @@ export async function readStore(): Promise<Record<string, unknown[]>> {
   const client = getClient();
   const result: Record<string, unknown[]> = {};
   for (const col of COLLECTIONS) {
-    const rs = await client.execute({ sql: 'SELECT data FROM overrides WHERE collection = ?', args: [col] });
-    result[col] = rs.rows.map((r) => JSON.parse(r[0] as string));
+    const rs = await client.execute({ sql: 'SELECT data FROM items WHERE collection = ? AND is_deleted = 0', args: [col] });
+    result[col] = rs.rows.map((r) => JSON.parse(r.data as string));
   }
   return result;
 }
