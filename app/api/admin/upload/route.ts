@@ -20,7 +20,6 @@ export async function POST(request: Request) {
     if (!file || !file.type.startsWith('image/')) {
       return NextResponse.json({ success: false, error: 'ต้องเป็นไฟล์รูปภาพ (jpg, png, webp)' }, { status: 400 });
     }
-
     if (file.size > MAX_BYTES) {
       return NextResponse.json({ success: false, error: 'ไฟล์ใหญ่เกิน 8 MB' }, { status: 413 });
     }
@@ -29,11 +28,22 @@ export async function POST(request: Request) {
     const safeId = itemId.replace(/[^a-z0-9-_]/gi, '-').slice(0, 40);
     const filename = `uploads/${collection}/${collection}-${safeId}-${Date.now()}.${ext}`;
 
-    const blob = await put(filename, file, {
-      access: 'public',
-      contentType: file.type,
-    });
+    // อัปโหลด — รองรับทั้ง public และ private store
+    let blob;
+    try {
+      blob = await put(filename, file, { access: 'public', contentType: file.type });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('private')) {
+        blob = await put(filename, file, { access: 'private', contentType: file.type });
+        // private store: ส่ง proxy URL เพื่อให้ <img> โหลดได้
+        const proxyUrl = `/api/img?url=${encodeURIComponent(blob.url)}`;
+        return NextResponse.json({ success: true, url: proxyUrl, filename });
+      }
+      throw e;
+    }
 
+    // public store: ส่ง URL โดยตรง
     return NextResponse.json({ success: true, url: blob.url, filename });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'อัปโหลดไม่สำเร็จ';
