@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlaskConical, Calculator, Sprout, Droplets, AlertTriangle, Info, Layers, Scale } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
+import { ImageGallery, toImages } from '@/components/image-gallery';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList } from '@/components/ui';
 import {
   soilTypePlans, omLevels, pLevels, kLevels, formulas, buildSoilTestPlan, kgFertilizer,
@@ -58,9 +59,11 @@ export default function FertilizerPage() {
             <article key={d.id} id={`deficiency-${d.id}`} className="scroll-mt-24">
               <Card className="h-full">
                 <div className="flex items-start gap-3.5">
-                  <span className="grid place-items-center w-12 h-12 rounded-2xl bg-leaf-700 text-corn-300 font-extrabold text-[15px] shrink-0">
-                    {d.symbol}
-                  </span>
+                  {toImages(d)[0] ? (
+                    <img src={toImages(d)[0]!} alt={d.nutrient} className="w-12 h-12 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
+                  ) : (
+                    <span className="grid place-items-center w-12 h-12 rounded-2xl bg-corn-100 text-corn-700 shrink-0 text-xl font-black">{d.symbol}</span>
+                  )}
                   <div className="min-w-0">
                     <h3 className="text-[17px] font-extrabold text-leaf-900">ขาด{d.nutrient}</h3>
                     <p className="mt-1 text-[13.5px] font-semibold text-corn-800 bg-corn-50 rounded-xl px-3 py-1.5 inline-block">
@@ -68,6 +71,7 @@ export default function FertilizerPage() {
                     </p>
                   </div>
                 </div>
+                <ImageGallery images={toImages(d)} alt={d.nutrient} showPlaceholder />
 
                 <div className="mt-4 space-y-3.5">
                   <div>

@@ -110,6 +110,7 @@ export const nutrientUptake = [
 
 /** อาการขาดธาตุอาหาร */
 export type Deficiency = {
+  images?: string[];
   id: string;
   nutrient: string;
   symbol: string;

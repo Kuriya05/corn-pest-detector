@@ -47,6 +47,7 @@ export type ChemicalUse = {
 
 /** สารป้องกันกำจัด 1 สารออกฤทธิ์ */
 export type ChemicalEntry = {
+  images?: string[];
   id: string;
   /** ชื่อสารออกฤทธิ์ภาษาไทย */
   nameTh: string;

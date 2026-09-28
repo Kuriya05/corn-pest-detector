@@ -231,7 +231,7 @@ export function MobileTabBar() {
                 >
                   <Icon name={item.icon} size={center ? 22 : 19} strokeWidth={active ? 2.5 : 2} />
                 </span>
-                <span className={`text-[10.5px] font-bold ${active ? 'text-leaf-800' : 'text-leaf-600'}`}>
+                <span className={`text-[12px] font-bold ${active ? 'text-leaf-800' : 'text-leaf-600'}`}>
                   {item.short}
                 </span>
               </Link>
@@ -316,7 +316,7 @@ export default function SiteShell({ children, wide }: { children: ReactNode; wid
   return (
     <>
       <SiteHeader />
-      <main id="main" className={`flex-1 w-full mx-auto px-4 sm:px-6 pt-6 pb-28 lg:pb-16 ${wide ? 'max-w-[1400px]' : 'max-w-7xl'}`}>
+      <main id="main" className={`flex-1 w-full mx-auto px-4 sm:px-6 pt-6 pb-28 lg:pb-16 overflow-x-hidden ${wide ? 'max-w-[1400px]' : 'max-w-7xl'}`}>
         {children}
       </main>
       <SiteFooter />

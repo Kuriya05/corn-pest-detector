@@ -6,6 +6,7 @@ import {
   SprayCan, Search, ChevronDown, Ban, Layers, Target, AlertTriangle, ShieldAlert, Info,
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
+import { ImageGallery, toImages } from '@/components/image-gallery';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';
 import { allChemicals as seedChemicals, chemicalCategories, chemicalGuide } from '@/lib/data/chemicals';
 import { useCollection } from '@/lib/use-collection';
@@ -112,12 +113,16 @@ export default function ChemicalsPage() {
                 <Card className="cat-bar">
                   <button type="button" onClick={() => setOpenId(open ? null : c.id)} aria-expanded={open} className="w-full text-left focus-ring rounded-2xl">
                     <div className="flex items-start gap-3.5">
-                      <span
-                        className="grid place-items-center w-11 h-11 rounded-2xl shrink-0 text-white"
-                        style={{ backgroundColor: c.restricted ? '#57534e' : CAT }}
-                      >
-                        {c.restricted ? <Ban size={21} /> : <SprayCan size={21} />}
-                      </span>
+                      {c.imageUrl ? (
+                        <img src={c.imageUrl} alt={c.nameTh} className="w-11 h-11 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
+                      ) : (
+                        <span
+                          className="grid place-items-center w-11 h-11 rounded-2xl shrink-0 text-white"
+                          style={{ backgroundColor: c.restricted ? '#57534e' : CAT }}
+                        >
+                          {c.restricted ? <Ban size={21} /> : <SprayCan size={21} />}
+                        </span>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-extrabold ring-1 ${categoryTone[c.category] ?? 'bg-leaf-100 text-leaf-900 ring-leaf-200'}`}>
@@ -151,6 +156,7 @@ export default function ChemicalsPage() {
 
                   {open && (
                     <div className="mt-5 space-y-5 border-t border-leaf-100 pt-5 animate-rise">
+                      <ImageGallery images={toImages(c)} alt={c.nameTh ?? c.id ?? ''} showPlaceholder />
                       {c.restricted && c.restrictedReason && (
                         <Callout tone="danger" title="สถานะทางกฎหมาย / ข้อห้าม">
                           {c.restrictedReason}

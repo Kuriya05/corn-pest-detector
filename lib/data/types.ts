@@ -37,6 +37,7 @@ export type SourceRef = {
 };
 
 export type Pest = {
+  images?: string[];
   id: string;
   nameTh: string;
   nameEn: string;
@@ -69,6 +70,7 @@ export type Pest = {
 };
 
 export type Disease = {
+  images?: string[];
   id: string;
   nameTh: string;
   nameEn: string;
@@ -98,6 +100,7 @@ export type Disease = {
 
 /** ชีวภัณฑ์และศัตรูธรรมชาติ */
 export type Biological = {
+  images?: string[];
   id: string;
   nameTh: string;
   nameEn: string;
@@ -119,6 +122,7 @@ export type Biological = {
 
 /** วัชพืชในไร่ข้าวโพด */
 export type Weed = {
+  images?: string[];
   id: string;
   nameTh: string;
   localNames?: string[];
@@ -141,6 +145,7 @@ export type Weed = {
 
 /** พันธุ์ข้าวโพด */
 export type Variety = {
+  images?: string[];
   id: string;
   nameTh: string;
   code?: string;

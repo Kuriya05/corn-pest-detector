@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Leaf, Search, ChevronDown, AlertTriangle, Shield, FlaskConical, Eye, Thermometer,
+  Leaf, Search, ChevronDown, AlertTriangle, Shield, FlaskConical, Eye, Thermometer, Microscope,
   Sprout, Stethoscope, Loader2, ArrowRight, HelpCircle, ClipboardCheck, ScanLine,
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
+import { ImageGallery, toImages } from '@/components/image-gallery';
 import {
   PageHeader, Card, Chip, Callout, SeverityBadge, BulletList, SourceList, ChemicalTable, EmptyState,
 } from '@/components/ui';
@@ -144,9 +145,11 @@ export default function DiseasesPage() {
                     className="w-full text-left focus-ring rounded-2xl"
                   >
                     <div className="flex items-start gap-3.5">
-                      <span className="grid place-items-center w-11 h-11 rounded-2xl bg-orange-100 text-orange-800 shrink-0">
-                        <Leaf size={21} />
-                      </span>
+                      {toImages(d)[0] ? (
+                        <img src={toImages(d)[0]!} alt={d.nameTh ?? d.id} className="w-11 h-11 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
+                      ) : (
+                        <span className="grid place-items-center w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 shrink-0"><Microscope size={21} /></span>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <SeverityBadge level={d.severity} />
@@ -164,6 +167,7 @@ export default function DiseasesPage() {
 
                   {open && (
                     <div className="mt-5 space-y-5 border-t border-leaf-100 pt-5 animate-rise">
+                      <ImageGallery images={toImages(d)} alt={d.nameTh ?? d.id ?? ''} showPlaceholder />
                       <Section icon={<Eye size={17} />} title="อาการที่มองเห็น">
                         <BulletList items={d.symptoms} />
                       </Section>

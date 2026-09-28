@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bug, Search, ChevronDown, AlertTriangle, Sprout, Shield, FlaskConical, Eye, Clock } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
+import { ImageGallery, toImages } from '@/components/image-gallery';
 import { PageHeader, Card, Chip, Callout, SeverityBadge, BulletList, SourceList, ChemicalTable, EmptyState } from '@/components/ui';
 import { pests as seedPests } from '@/lib/data/pests';
 import { useCollection } from '@/lib/use-collection';
@@ -104,9 +105,11 @@ export default function PestsPage() {
                     className="w-full text-left focus-ring rounded-2xl"
                   >
                     <div className="flex items-start gap-3.5">
-                      <span className="grid place-items-center w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 shrink-0">
-                        <Bug size={21} />
-                      </span>
+                      {toImages(p)[0] ? (
+                        <img src={toImages(p)[0]!} alt={p.nameTh ?? p.id} className="w-11 h-11 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
+                      ) : (
+                        <span className="grid place-items-center w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 shrink-0"><Bug size={21} /></span>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <SeverityBadge level={p.severity} />
@@ -128,6 +131,7 @@ export default function PestsPage() {
 
                   {open && (
                     <div className="mt-5 space-y-5 border-t border-leaf-100 pt-5 animate-rise">
+                      <ImageGallery images={toImages(p)} alt={p.nameTh ?? p.id ?? ''} showPlaceholder />
                       <Section icon={<Eye size={17} />} title="จุดสังเกตตัวแมลง">
                         <BulletList items={p.identify} />
                       </Section>

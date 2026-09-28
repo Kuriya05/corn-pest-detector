@@ -1,13 +1,11 @@
 /**
- * ชั้นเก็บข้อมูลของคลังความรู้
+ * ชั้นเก็บข้อมูลของคลังความรู้ (libsql edition — async API)
  *
- * แนวคิด: ข้อมูลตั้งต้น (seed) อยู่ในไฟล์โค้ด lib/data/*.ts ซึ่งอ้างอิงเอกสารราชการ
- * ส่วนที่แอดมินเพิ่ม แก้ หรือลบ จะถูกบันทึกแยกไว้ใน data/overrides.json
- * เวลาอ่านจะนำสองส่วนมาซ้อนกัน ทำให้ข้อมูลต้นฉบับไม่ถูกทำลาย และย้อนกลับได้เสมอ
+ * ข้อมูลตั้งต้น (seed) อยู่ในไฟล์โค้ด lib/data/*.ts
+ * ส่วนที่แอดมินเพิ่ม แก้ หรือลบ จะถูกบันทึกลง SQLite ที่ ../database/corn-pest.db
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { getClient, ensureSchema } from './db';
 import { pests } from './data/pests';
 import { diseases } from './data/diseases';
 import { biologicals } from './data/biologicals';
@@ -31,35 +29,10 @@ export type AuditEntry = {
   label: string;
 };
 
-type CollectionOverride = {
-  /** แก้ไขทับรายการเดิม (เก็บทั้งรายการที่แก้แล้ว) */
-  edits: Record<string, Item>;
-  /** รายการที่แอดมินเพิ่มเอง */
-  added: Item[];
-  /** id ของรายการตั้งต้นที่ถูกซ่อน */
-  removed: string[];
+export type MergedItem = Item & {
+  official: boolean;
+  edited: boolean;
 };
-
-export type StoreFile = {
-  version: number;
-  updatedAt: string;
-  collections: Record<CollectionName, CollectionOverride>;
-  audit: AuditEntry[];
-};
-
-const DATA_DIR = join(process.cwd(), 'data');
-const STORE_PATH = join(DATA_DIR, 'overrides.json');
-
-const emptyOverride = (): CollectionOverride => ({ edits: {}, added: [], removed: [] });
-
-function emptyStore(): StoreFile {
-  return {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    collections: Object.fromEntries(COLLECTIONS.map((c) => [c, emptyOverride()])) as StoreFile['collections'],
-    audit: [],
-  };
-}
 
 /** ข้อมูลตั้งต้นจากไฟล์โค้ด */
 function seedOf(name: CollectionName): Item[] {
@@ -68,59 +41,6 @@ function seedOf(name: CollectionName): Item[] {
     chemicals: allChemicals,
   };
   return map[name] as Item[];
-}
-
-export async function readStore(): Promise<StoreFile> {
-  try {
-    const raw = await readFile(STORE_PATH, 'utf8');
-    const parsed = JSON.parse(raw) as StoreFile;
-    // เติมหมวดที่อาจยังไม่มีในไฟล์เก่า
-    for (const c of COLLECTIONS) {
-      if (!parsed.collections?.[c]) {
-        parsed.collections = { ...(parsed.collections ?? {}), [c]: emptyOverride() } as StoreFile['collections'];
-      }
-    }
-    if (!Array.isArray(parsed.audit)) parsed.audit = [];
-    return parsed;
-  } catch {
-    return emptyStore();
-  }
-}
-
-async function writeStore(store: StoreFile): Promise<void> {
-  store.updatedAt = new Date().toISOString();
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
-}
-
-export type MergedItem = Item & {
-  /** true = เป็นข้อมูลตั้งต้นที่อ้างอิงเอกสารราชการ */
-  official: boolean;
-  /** true = ถูกแอดมินแก้ไขทับแล้ว */
-  edited: boolean;
-};
-
-/** อ่านข้อมูลของหมวดหนึ่ง โดยซ้อนสิ่งที่แอดมินแก้ไว้ทับข้อมูลตั้งต้น */
-export async function getCollection(name: CollectionName): Promise<MergedItem[]> {
-  const store = await readStore();
-  const ov = store.collections[name] ?? emptyOverride();
-  const removed = new Set(ov.removed);
-
-  const base = seedOf(name)
-    .filter((it) => !removed.has(it.id))
-    .map((it) => {
-      const edit = ov.edits[it.id];
-      return { ...(edit ?? it), official: true, edited: Boolean(edit) } as MergedItem;
-    });
-
-  const added = ov.added.map((it) => ({ ...it, official: false, edited: false }) as MergedItem);
-
-  return [...base, ...added];
-}
-
-export async function getAllCollections(): Promise<Record<CollectionName, MergedItem[]>> {
-  const entries = await Promise.all(COLLECTIONS.map(async (c) => [c, await getCollection(c)] as const));
-  return Object.fromEntries(entries) as Record<CollectionName, MergedItem[]>;
 }
 
 function labelOf(name: CollectionName, item: Item): string {
@@ -132,9 +52,7 @@ function labelOf(name: CollectionName, item: Item): string {
 /** สร้าง id ใหม่จากข้อความ ให้ไม่ซ้ำกับของเดิม */
 export function makeId(name: CollectionName, raw: string, existing: string[]): string {
   const base =
-    raw
-      .trim()
-      .toLowerCase()
+    raw.trim().toLowerCase()
       .replace(/[^a-z0-9ก-๙\s-]/g, '')
       .replace(/\s+/g, '-')
       .slice(0, 40) || `${name}-item`;
@@ -142,6 +60,57 @@ export function makeId(name: CollectionName, raw: string, existing: string[]): s
   let n = 2;
   while (existing.includes(id)) id = `${base}-${n++}`;
   return id;
+}
+
+// ─── Queries ────────────────────────────────────────────────
+
+type DbRow = { item_id: string; is_seed: number; is_deleted: number; data: string };
+
+/** อ่านข้อมูลของหมวดหนึ่ง โดยซ้อนสิ่งที่แอดมินแก้ไว้ทับข้อมูลตั้งต้น */
+export async function getCollection(name: CollectionName): Promise<MergedItem[]> {
+  await ensureSchema();
+  const client = getClient();
+
+  const rs = await client.execute({
+    sql: 'SELECT item_id, is_seed, is_deleted, data FROM items WHERE collection = ?',
+    args: [name],
+  });
+
+  const editMap = new Map<string, Item>();
+  const deletedSeedIds = new Set<string>();
+  const addedItems: Item[] = [];
+
+  for (const row of rs.rows) {
+    const item_id   = row.item_id as string;
+    const is_seed   = Number(row.is_seed);
+    const is_deleted = Number(row.is_deleted);
+    const parsed    = JSON.parse(row.data as string) as Item;
+
+    if (is_seed) {
+      if (is_deleted) deletedSeedIds.add(item_id);
+      else editMap.set(item_id, parsed);
+    } else {
+      if (!is_deleted) addedItems.push(parsed);
+    }
+  }
+
+  const base = seedOf(name)
+    .filter((it) => !deletedSeedIds.has(it.id))
+    .map((it) => {
+      const edit = editMap.get(it.id);
+      return { ...(edit ?? it), official: true, edited: Boolean(edit) } as MergedItem;
+    });
+
+  const added = addedItems.map((it) => ({ ...it, official: false, edited: false }) as MergedItem);
+
+  return [...base, ...added];
+}
+
+export async function getAllCollections(): Promise<Record<CollectionName, MergedItem[]>> {
+  const entries = await Promise.all(
+    COLLECTIONS.map(async (c) => [c, await getCollection(c)] as const)
+  );
+  return Object.fromEntries(entries) as Record<CollectionName, MergedItem[]>;
 }
 
 /** เพิ่มหรือแก้ไขรายการ */
@@ -152,104 +121,161 @@ export async function saveItem(
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   if (!item.id || typeof item.id !== 'string') return { ok: false, error: 'รายการนี้ไม่มีรหัส (id)' };
 
-  const store = await readStore();
-  const ov = store.collections[name] ?? emptyOverride();
-  const seedIds = seedOf(name).map((x) => x.id);
-  const isSeed = seedIds.includes(item.id);
-  const addedIndex = ov.added.findIndex((x) => x.id === item.id);
+  await ensureSchema();
+  const client = getClient();
+  const now = new Date().toISOString();
+  const seedIds = new Set(seedOf(name).map((x) => x.id));
+  const isSeed = seedIds.has(item.id) ? 1 : 0;
 
-  let action: AuditEntry['action'];
-  if (isSeed) {
-    ov.edits[item.id] = item;
-    // ถ้าเคยถูกลบไว้ การแก้ไขถือว่านำกลับมาแสดง
-    ov.removed = ov.removed.filter((r) => r !== item.id);
-    action = 'update';
-  } else if (addedIndex >= 0) {
-    ov.added[addedIndex] = item;
-    action = 'update';
-  } else {
-    ov.added.push(item);
-    action = 'create';
-  }
+  // ตรวจสอบว่ามีอยู่แล้วหรือเปล่า
+  const existRs = await client.execute({
+    sql: 'SELECT item_id FROM items WHERE collection = ? AND item_id = ?',
+    args: [name, item.id],
+  });
+  const exists = existRs.rows.length > 0;
+  const action = exists ? 'update' : 'create';
 
-  store.collections[name] = ov;
-  store.audit.unshift({ at: new Date().toISOString(), by, action, collection: name, id: item.id, label: labelOf(name, item) });
-  store.audit = store.audit.slice(0, 500);
-  await writeStore(store);
+  await client.batch([
+    {
+      sql: `INSERT INTO items (collection, item_id, is_seed, is_deleted, data, created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)
+            ON CONFLICT(collection, item_id) DO UPDATE SET
+              is_deleted = 0,
+              data = excluded.data,
+              updated_at = excluded.updated_at,
+              updated_by = excluded.updated_by`,
+      args: [name, item.id, isSeed, JSON.stringify(item), now, now, exists ? null : by, by],
+    },
+    {
+      sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [now, by, action, name, item.id, labelOf(name, item)],
+    },
+  ], 'write');
+
   return { ok: true, id: item.id };
 }
 
-/** ลบรายการ — ถ้าเป็นข้อมูลตั้งต้นจะแค่ซ่อนไว้ และกู้คืนได้ */
+/** ลบรายการ */
 export async function deleteItem(
   name: CollectionName,
   id: string,
   by: string,
 ): Promise<{ ok: true; permanent: boolean } | { ok: false; error: string }> {
-  const store = await readStore();
-  const ov = store.collections[name] ?? emptyOverride();
+  await ensureSchema();
+  const client = getClient();
+  const now = new Date().toISOString();
   const seed = seedOf(name).find((x) => x.id === id);
-  const addedIndex = ov.added.findIndex((x) => x.id === id);
+
+  const rowRs = await client.execute({
+    sql: 'SELECT item_id, is_seed, data FROM items WHERE collection = ? AND item_id = ?',
+    args: [name, id],
+  });
+  const row = rowRs.rows[0] as DbRow | undefined;
 
   let label = id;
   let permanent = false;
 
   if (seed) {
-    label = labelOf(name, ov.edits[id] ?? seed);
-    if (!ov.removed.includes(id)) ov.removed.push(id);
-  } else if (addedIndex >= 0) {
-    label = labelOf(name, ov.added[addedIndex]);
-    ov.added.splice(addedIndex, 1);
+    // seed item — soft delete
+    const item = row ? (JSON.parse(row.data as string) as Item) : seed;
+    label = labelOf(name, item);
+    await client.batch([
+      {
+        sql: `INSERT INTO items (collection, item_id, is_seed, is_deleted, data, created_at, updated_at, created_by, updated_by)
+              VALUES (?, ?, 1, 1, '{}', ?, ?, ?, ?)
+              ON CONFLICT(collection, item_id) DO UPDATE SET
+                is_deleted = 1,
+                updated_at = excluded.updated_at,
+                updated_by = excluded.updated_by`,
+        args: [name, id, now, now, null, by],
+      },
+      {
+        sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, 'delete', ?, ?, ?)`,
+        args: [now, by, name, id, label],
+      },
+    ], 'write');
+  } else if (row) {
+    // custom item — hard delete
+    label = labelOf(name, JSON.parse(row.data as string) as Item);
+    await client.batch([
+      {
+        sql: 'DELETE FROM items WHERE collection = ? AND item_id = ?',
+        args: [name, id],
+      },
+      {
+        sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, 'delete', ?, ?, ?)`,
+        args: [now, by, name, id, label],
+      },
+    ], 'write');
     permanent = true;
   } else {
     return { ok: false, error: 'ไม่พบรายการที่ต้องการลบ' };
   }
 
-  store.collections[name] = ov;
-  store.audit.unshift({ at: new Date().toISOString(), by, action: 'delete', collection: name, id, label });
-  store.audit = store.audit.slice(0, 500);
-  await writeStore(store);
   return { ok: true, permanent };
 }
 
-/** กู้คืนรายการตั้งต้นให้กลับไปเป็นค่าเดิมจากเอกสารอ้างอิง */
+/** กู้คืนรายการตั้งต้น */
 export async function restoreItem(
   name: CollectionName,
   id: string,
   by: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const store = await readStore();
-  const ov = store.collections[name] ?? emptyOverride();
   const seed = seedOf(name).find((x) => x.id === id);
   if (!seed) return { ok: false, error: 'รายการนี้ไม่ใช่ข้อมูลตั้งต้น จึงกู้คืนไม่ได้' };
 
-  delete ov.edits[id];
-  ov.removed = ov.removed.filter((r) => r !== id);
-  store.collections[name] = ov;
-  store.audit.unshift({ at: new Date().toISOString(), by, action: 'restore', collection: name, id, label: labelOf(name, seed) });
-  store.audit = store.audit.slice(0, 500);
-  await writeStore(store);
+  await ensureSchema();
+  const client = getClient();
+  const now = new Date().toISOString();
+
+  await client.batch([
+    {
+      sql: 'DELETE FROM items WHERE collection = ? AND item_id = ?',
+      args: [name, id],
+    },
+    {
+      sql: `INSERT INTO audit (at, by, action, collection, item_id, label) VALUES (?, ?, 'restore', ?, ?, ?)`,
+      args: [now, by, name, id, labelOf(name, seed)],
+    },
+  ], 'write');
+
   return { ok: true };
 }
 
-/** สรุปจำนวนรายการในแต่ละหมวด */
+/** สรุปสถิติ */
 export async function getStats() {
-  const store = await readStore();
-  const out = await Promise.all(
+  await ensureSchema();
+  const client = getClient();
+  const now = new Date().toISOString();
+
+  const collections = await Promise.all(
     COLLECTIONS.map(async (c) => {
       const items = await getCollection(c);
-      const ov = store.collections[c] ?? emptyOverride();
+
+      const rowsRs = await client.execute({
+        sql: 'SELECT is_seed, is_deleted FROM items WHERE collection = ?',
+        args: [c],
+      });
+      const rows = rowsRs.rows;
+
       return {
         name: c,
         label: collectionLabels[c],
         total: items.length,
         seed: seedOf(c).length,
-        added: ov.added.length,
-        edited: Object.keys(ov.edits).length,
-        removed: ov.removed.length,
+        added: rows.filter((r) => !Number(r.is_seed) && !Number(r.is_deleted)).length,
+        edited: rows.filter((r) => Number(r.is_seed) && !Number(r.is_deleted)).length,
+        removed: rows.filter((r) => Number(r.is_seed) && Number(r.is_deleted)).length,
       };
-    }),
+    })
   );
-  return { collections: out, audit: store.audit.slice(0, 50), updatedAt: store.updatedAt };
+
+  const auditRs = await client.execute(
+    'SELECT at, by, action, collection, item_id as id, label FROM audit ORDER BY id DESC LIMIT 50'
+  );
+  const audit = auditRs.rows as unknown as AuditEntry[];
+
+  return { collections, audit, updatedAt: now };
 }
 
 export { seedOf };

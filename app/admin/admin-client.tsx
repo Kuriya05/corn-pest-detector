@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ShieldCheck, Search, Plus, Pencil, Trash2, RotateCcw, Save, X, Loader2,
   Download, History, Database, AlertTriangle, CheckCircle2, LogOut, BadgeCheck,
+  ImagePlus, Trash, Eye,
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { PageHeader, Card, Chip, Callout, EmptyState } from '@/components/ui';
@@ -64,10 +65,12 @@ export default function AdminClient({ username }: { username: string }) {
 
   const titleOf = (it: Item) => String(it[titleField[collection]] ?? it.id);
 
-  /** สร้างแม่แบบรายการใหม่จากโครงสร้างของรายการเดิม */
   function blankItem(): Item {
     const template = items.find((i) => i.official) ?? items[0];
-    const blank: Item = { id: '' };
+    // สร้าง id แบบสุ่มเพื่อกันซ้ำ: prefix-timestamp-random
+    const pre = collection.slice(0, 4);
+    const randId = `${pre}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const blank: Item = { id: randId, images: [] };
     if (template) {
       for (const [k, v] of Object.entries(template)) {
         if (k === 'official' || k === 'edited' || k === 'id') continue;
@@ -78,6 +81,7 @@ export default function AdminClient({ username }: { username: string }) {
         else blank[k] = '';
       }
     }
+    if (!('images' in blank)) blank.images = [];
     return blank;
   }
 
@@ -172,7 +176,7 @@ export default function AdminClient({ username }: { username: string }) {
         ))}
       </div>
 
-      {/* สถิติของหมวดปัจจุบัน */}
+      {/* สถิติ */}
       {current && (
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2.5">
           {[
@@ -190,12 +194,10 @@ export default function AdminClient({ username }: { username: string }) {
         </div>
       )}
 
-      {/* รายการที่ถูกซ่อน */}
       {current && current.removed > 0 && (
         <div className="mt-4">
           <Callout tone="warn" title={`มี ${current.removed} รายการที่ถูกซ่อนอยู่`}>
-            รายการเหล่านี้ยังอยู่ในระบบแต่ไม่แสดงให้เกษตรกรเห็น — กดกู้คืนได้จากรายการด้านล่างที่ขึ้นป้าย &ldquo;ถูกซ่อน&rdquo;
-            หรือกดปุ่มกู้คืนทั้งหมดในหน้านี้
+            รายการเหล่านี้ยังอยู่ในระบบแต่ไม่แสดงให้เกษตรกรเห็น — กดกู้คืนได้จากรายการด้านล่าง
           </Callout>
         </div>
       )}
@@ -230,6 +232,13 @@ export default function AdminClient({ username }: { username: string }) {
             <li key={it.id}>
               <Card className="py-4!">
                 <div className="flex flex-wrap items-center gap-3">
+                  {/* รูปภาพ thumbnail */}
+                  {Array.isArray(it.images) && (it.images as string[]).length > 0 && (
+                    <div className="shrink-0 w-14 h-14 rounded-2xl overflow-hidden ring-1 ring-leaf-100 bg-leaf-50">
+                      <img src={(it.images as string[])[0]} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       {it.official ? (
@@ -244,6 +253,11 @@ export default function AdminClient({ username }: { username: string }) {
                       {it.edited && (
                         <span className="rounded-full bg-corn-100 px-2.5 py-0.5 text-[11.5px] font-extrabold text-corn-900">
                           แก้ไขแล้ว
+                        </span>
+                      )}
+                      {Array.isArray(it.images) && (it.images as string[]).length > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-[11.5px] font-extrabold text-sky-800">
+                          <Eye size={11} /> มีรูปภาพ
                         </span>
                       )}
                     </div>
@@ -315,6 +329,7 @@ export default function AdminClient({ username }: { username: string }) {
         <ItemEditor
           item={editing}
           isNew={isNew}
+          collection={collection}
           collectionLabel={collectionLabels[collection]}
           onCancel={() => { setEditing(null); setIsNew(false); }}
           onSave={save}
@@ -327,21 +342,54 @@ export default function AdminClient({ username }: { username: string }) {
 /* ---------------- ฟอร์มแก้ไขรายการ ---------------- */
 
 function ItemEditor({
-  item, isNew, collectionLabel, onCancel, onSave,
+  item, isNew, collection, collectionLabel, onCancel, onSave,
 }: {
   item: Item;
   isNew: boolean;
+  collection: CollectionName;
   collectionLabel: string;
   onCancel: () => void;
   onSave: (item: Item) => Promise<void>;
 }) {
-  const [draft, setDraft] = useState<Item>(item);
+  const [draft, setDraft] = useState<Item>(() => {
+    // migrate: imageUrl (เดิม) → images array (ใหม่)
+    const base = { ...item };
+    if (!('images' in base)) {
+      const legacy = (base as Record<string,unknown>).imageUrl;
+      base.images = legacy ? [legacy as string] : [];
+      delete (base as Record<string,unknown>).imageUrl;
+    }
+    return base;
+  });
   const [jsonErrors, setJsonErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const keys = Object.keys(draft).filter((k) => k !== 'official' && k !== 'edited');
+  // จัด images มาอยู่หน้าสุดเสมอ
+  const keys = ['images', ...Object.keys(draft).filter((k) => !['official', 'edited', 'images', 'imageUrl'].includes(k))];
 
   const setField = (key: string, value: unknown) => setDraft((d) => ({ ...d, [key]: value }));
+
+  async function uploadImage(file: File, currentUrls: string[]) {
+    setUploadingImage(true);
+    setImageError(null);
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      form.append('collection', collection);
+      form.append('itemId', draft.id || 'new');
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+      setField('images', [...currentUrls, data.url as string]);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : 'อัปโหลดไม่สำเร็จ');
+    } finally {
+      setUploadingImage(false);
+    }
+  }
 
   async function submit() {
     if (Object.keys(jsonErrors).length) return;
@@ -368,9 +416,8 @@ function ItemEditor({
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-5">
           {isNew && (
-            <Callout tone="info" title="กรอกรหัสรายการเป็นภาษาอังกฤษ">
-              รหัส (id) ใช้สำหรับลิงก์และการจับคู่กับผลวิเคราะห์ของ AI ควรเป็นตัวอักษรอังกฤษตัวเล็กคั่นด้วยขีด เช่น
-              <code className="mx-1 rounded bg-leaf-100 px-1.5">fall-armyworm</code> และต้องไม่ซ้ำกับรายการอื่น
+            <Callout tone="info" title="รหัสสุ่มอัตโนมัติ">
+              ระบบสร้างรหัสให้อัตโนมัติเพื่อป้องกันข้อมูลซ้ำ — ไม่ต้องกรอกเอง
             </Callout>
           )}
 
@@ -378,14 +425,96 @@ function ItemEditor({
             const value = draft[key];
             const label = fieldLabels[key] ?? key;
 
+            /* ---- รูปภาพ (หลายรูป) ---- */
+            if (key === 'images') {
+              const urls: string[] = Array.isArray(value) ? (value as string[]) : [];
+              return (
+                <Field key={key} label="รูปภาพประกอบ" hint="jpg, png, webp ไม่เกิน 8 MB ต่อรูป | เพิ่มได้หลายรูป | กด Enter หลังวาง URL">
+                  {/* preview grid */}
+                  {urls.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {urls.map((url, idx) => (
+                        <div key={idx} className="relative">
+                          <img src={url} alt={`รูปที่ ${idx + 1}`}
+                            className="h-28 w-auto max-w-[180px] rounded-2xl object-cover ring-1 ring-leaf-200" />
+                          <button type="button"
+                            onClick={() => setField('images', urls.filter((_, i) => i !== idx))}
+                            className="absolute -top-2 -right-2 grid place-items-center w-7 h-7 rounded-full bg-rose-600 text-white shadow-md hover:bg-rose-700 transition"
+                            title={`ลบรูปที่ ${idx + 1}`}>
+                            <Trash size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mb-3 h-32 w-full rounded-2xl bg-leaf-50 ring-1 ring-dashed ring-leaf-300 flex flex-col items-center justify-center gap-2 text-leaf-400">
+                      <ImagePlus size={28} className="opacity-40" />
+                      <span className="text-[14px]">ยังไม่มีรูปภาพ</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        let cur = [...urls];
+                        for (const f of files) {
+                          await uploadImage(f, cur);
+                          cur = [...cur]; // refresh after each
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      className="inline-flex items-center gap-2 rounded-xl bg-leaf-700 px-4 py-2.5 text-[14px] font-bold text-white hover:bg-leaf-800 disabled:opacity-60 transition focus-ring"
+                    >
+                      {uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+                      {uploadingImage ? 'กำลังอัปโหลด…' : 'เพิ่มรูปภาพ'}
+                    </button>
+                    <input
+                      type="url"
+                      placeholder="วาง URL รูปแล้วกด Enter…"
+                      className="flex-1 min-w-[200px] rounded-xl bg-white ring-1 ring-leaf-200 px-3 py-2.5 text-[14px] focus-ring"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const val = (e.target as HTMLInputElement).value.trim();
+                          if (val) { setField('images', [...urls, val]); (e.target as HTMLInputElement).value = ''; }
+                        }
+                      }}
+                    />
+                  </div>
+                  {imageError && <p className="mt-2 text-[13px] font-semibold text-rose-700">{imageError}</p>}
+                </Field>
+              );
+            }
+
             if (key === 'id') {
               return (
                 <Field key={key} label={label}>
-                  <input
-                    type="text" value={String(value ?? '')} disabled={!isNew}
-                    onChange={(e) => setField(key, e.target.value.trim())}
-                    className="w-full rounded-2xl bg-white ring-1 ring-leaf-200 px-4 py-3 text-[15px] font-mono disabled:bg-leaf-50 disabled:text-leaf-500 focus-ring"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text" value={String(value ?? '')} readOnly
+                      className="flex-1 rounded-2xl bg-leaf-50 ring-1 ring-leaf-200 px-4 py-3 text-[15px] font-mono text-leaf-600 focus-ring"
+                    />
+                    {isNew && (
+                      <button type="button"
+                        onClick={() => {
+                          const pre = collection.slice(0, 4);
+                          setField('id', `${pre}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`);
+                        }}
+                        className="shrink-0 rounded-2xl bg-white ring-1 ring-leaf-200 px-4 py-3 text-[13px] font-bold text-leaf-700 hover:bg-leaf-50 transition focus-ring"
+                        title="สุ่มรหัสใหม่"
+                      >สุ่มใหม่</button>
+                    )}
+                  </div>
                   {!isNew && <p className="mt-1 text-[12px] text-leaf-500">รหัสแก้ไขไม่ได้ เพื่อไม่ให้ลิงก์ที่มีอยู่เสีย</p>}
                 </Field>
               );
@@ -413,7 +542,6 @@ function ItemEditor({
               );
             }
 
-            // อาร์เรย์ของข้อความ — แก้เป็นบรรทัดละรายการ
             if (Array.isArray(value) && value.every((v) => typeof v === 'string')) {
               return (
                 <Field key={key} label={label} hint="พิมพ์บรรทัดละ 1 รายการ">
@@ -427,7 +555,6 @@ function ItemEditor({
               );
             }
 
-            // อาร์เรย์ของวัตถุ หรือวัตถุ — แก้เป็น JSON
             if (value !== null && typeof value === 'object') {
               const err = jsonErrors[key];
               return (
@@ -453,7 +580,81 @@ function ItemEditor({
               );
             }
 
-            // ข้อความธรรมดา
+            /* ---- ฟิลด์ที่มีตัวเลือกคงที่ ---- */
+            {/* kind (โรค/ชีวภัณฑ์), severity, lifeCycle, cropType, hybridType, group (วัชพืช) */}
+            const FIXED_OPTIONS: Record<string, { v: string; l: string }[]> = {
+              severity: [
+                { v: 'low',      l: '🟢 เฝ้าระวัง' },
+                { v: 'medium',   l: '🟡 ปานกลาง' },
+                { v: 'high',     l: '🟠 รุนแรง' },
+                { v: 'critical', l: '🔴 รุนแรงที่สุด' },
+              ],
+              lifeCycle: [
+                { v: 'ฤดูเดียว', l: 'ฤดูเดียว (Annual)' },
+                { v: 'ข้ามปี',   l: 'ข้ามปี (Perennial)' },
+              ],
+              cropType: [
+                { v: 'เลี้ยงสัตว์', l: 'เลี้ยงสัตว์' },
+                { v: 'หวาน',        l: 'หวาน' },
+                { v: 'ข้าวเหนียว',  l: 'ข้าวเหนียว' },
+                { v: 'เทียน',       l: 'เทียน' },
+                { v: 'ฝักอ่อน',    l: 'ฝักอ่อน' },
+              ],
+              hybridType: [
+                { v: 'ลูกผสมเดี่ยว',    l: 'ลูกผสมเดี่ยว (Single cross)' },
+                { v: 'ลูกผสมสามทาง',   l: 'ลูกผสมสามทาง (Three-way cross)' },
+                { v: 'ผสมเปิด',         l: 'ผสมเปิด (Open-pollinated)' },
+                { v: 'พันธุ์รับรอง',    l: 'พันธุ์รับรอง' },
+              ],
+            };
+            const KIND_OPTS: Record<string, { v: string; l: string }[]> = {
+              diseases: [
+                { v: 'เชื้อรา',    l: '🍄 เชื้อรา' },
+                { v: 'แบคทีเรีย', l: '🦠 แบคทีเรีย' },
+                { v: 'ไวรัส',     l: '🧬 ไวรัส' },
+              ],
+              biologicals: [
+                { v: 'เชื้อรา',          l: '🍄 เชื้อรา' },
+                { v: 'แบคทีเรีย',       l: '🦠 แบคทีเรีย' },
+                { v: 'ไวรัส',           l: '🧬 ไวรัส' },
+                { v: 'แมลงตัวห้ำ',      l: '🐞 แมลงตัวห้ำ' },
+                { v: 'แมลงตัวเบียน',    l: '🦟 แมลงตัวเบียน' },
+                { v: 'ไส้เดือนฝอย',    l: '🪱 ไส้เดือนฝอย' },
+                { v: 'โปรโตซัว',        l: '🔬 โปรโตซัว' },
+                { v: 'สารสกัดจากพืช',  l: '🌿 สารสกัดจากพืช' },
+              ],
+            };
+            const WEED_GROUP_OPTS = [
+              { v: 'ใบแคบ', l: '🌾 ใบแคบ (Grass)' },
+              { v: 'ใบกว้าง', l: '🍃 ใบกว้าง (Broadleaf)' },
+              { v: 'กก', l: '🌱 กก (Sedge)' },
+            ];
+
+            let fixedOpts: { v: string; l: string }[] | null = null;
+            if (key === 'severity')  fixedOpts = FIXED_OPTIONS.severity;
+            else if (key === 'lifeCycle') fixedOpts = FIXED_OPTIONS.lifeCycle;
+            else if (key === 'cropType')  fixedOpts = FIXED_OPTIONS.cropType;
+            else if (key === 'hybridType') fixedOpts = FIXED_OPTIONS.hybridType;
+            else if (key === 'kind' && KIND_OPTS[collection]) fixedOpts = KIND_OPTS[collection];
+            else if (key === 'group' && collection === 'weeds') fixedOpts = WEED_GROUP_OPTS;
+
+            if (fixedOpts) {
+              const cur = String(value ?? fixedOpts[0]?.v ?? '');
+              return (
+                <Field key={key} label={label}>
+                  <select
+                    value={cur}
+                    onChange={(e) => setField(key, e.target.value)}
+                    className="w-full rounded-2xl bg-white ring-1 ring-leaf-200 px-4 py-3 text-[16px] font-semibold text-leaf-900 focus-ring cursor-pointer"
+                  >
+                    {fixedOpts.map((opt) => (
+                      <option key={opt.v} value={opt.v}>{opt.l}</option>
+                    ))}
+                  </select>
+                </Field>
+              );
+            }
+
             const text = String(value ?? '');
             const multiline = longTextFields.has(key) || text.length > 80;
             return (

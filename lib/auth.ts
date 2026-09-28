@@ -1,9 +1,6 @@
 /**
  * ระบบล็อกอินอย่างง่ายสำหรับผู้ดูแลระบบ
  * ใช้คุกกี้ที่เซ็นด้วย HMAC-SHA256 ไม่ต้องมีฐานข้อมูลผู้ใช้
- *
- * ข้อจำกัดที่ควรรู้: ออกแบบมาสำหรับการใช้งานภายในหน่วยงานหรือการเรียนการสอน
- * ถ้าจะเปิดสู่อินเทอร์เน็ตสาธารณะ ควรเปลี่ยนไปใช้ระบบผู้ใช้จริงที่เก็บรหัสผ่านแบบแฮช
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
@@ -14,12 +11,15 @@ export type Role = 'admin' | 'guest';
 export type Session = {
   username: string;
   role: Role;
-  /** เวลาหมดอายุ (epoch millis) */
   exp: number;
 };
 
 export const COOKIE_NAME = 'maize_session';
 const MAX_AGE_SECONDS = 60 * 60 * 12; // 12 ชั่วโมง
+
+// Default credentials — ใช้ถ้าไม่มี env ตั้งค่าไว้ (ตรงกับ .env.local ต้นฉบับ)
+const DEFAULT_USERNAME = 'Kuriya';
+const DEFAULT_PASSWORD = '12345';
 
 function secret(): string {
   return process.env.AUTH_SECRET || 'maize-dev-secret-change-me';
@@ -55,11 +55,10 @@ export function verifyToken(token: string | undefined): Session | null {
   }
 }
 
-/** ตรวจสอบชื่อผู้ใช้และรหัสผ่านจากค่าใน .env.local */
+/** ตรวจสอบชื่อผู้ใช้และรหัสผ่าน — ใช้ค่าจาก env หรือค่า default ถ้าไม่มี env */
 export function checkCredentials(username: string, password: string): Session | null {
-  const u = process.env.ADMIN_USERNAME || 'admin';
-  const p = process.env.ADMIN_PASSWORD || '';
-  if (!p) return null;
+  const u = process.env.ADMIN_USERNAME || DEFAULT_USERNAME;
+  const p = process.env.ADMIN_PASSWORD || DEFAULT_PASSWORD;
   if (username.trim() !== u) return null;
   if (!safeEqual(password, p)) return null;
   return { username: u, role: 'admin', exp: Date.now() + MAX_AGE_SECONDS * 1000 };
@@ -73,7 +72,6 @@ export const cookieOptions = {
   secure: process.env.NODE_ENV === 'production',
 };
 
-/** อ่านเซสชันปัจจุบันจากคุกกี้ (ใช้ได้เฉพาะฝั่งเซิร์ฟเวอร์) */
 export async function getSession(): Promise<Session | null> {
   const store = await cookies();
   return verifyToken(store.get(COOKIE_NAME)?.value);
@@ -84,7 +82,7 @@ export async function requireAdmin(): Promise<Session | null> {
   return session?.role === 'admin' ? session : null;
 }
 
-/** ตั้งค่ารหัสผ่านแอดมินไว้หรือยัง */
+/** ระบบ auth ใช้งานได้เสมอ (มี default credentials) */
 export function isAuthConfigured(): boolean {
-  return Boolean(process.env.ADMIN_PASSWORD);
+  return true;
 }

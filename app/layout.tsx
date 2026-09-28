@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Noto_Sans_Thai } from 'next/font/google';
+import { Sarabun } from 'next/font/google';
 import './globals.css';
 
-const thai = Noto_Sans_Thai({
+const thai = Sarabun({
   variable: '--font-thai',
   subsets: ['thai', 'latin'],
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['300', '400', '500', '600', '700', '800'],
   display: 'swap',
 });
 
@@ -24,6 +24,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
 };
+
+type LayoutProps<_T extends string> = { children: React.ReactNode };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (

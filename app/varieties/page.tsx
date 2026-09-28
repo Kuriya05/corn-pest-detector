@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Wheat, Search, ChevronDown, ShieldCheck, AlertTriangle, Sparkles, ShoppingBag, Target } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
+import { ImageGallery, toImages } from '@/components/image-gallery';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';
 import { varieties as seedVarieties, varietyGuide } from '@/lib/data/varieties';
 import { useCollection } from '@/lib/use-collection';
@@ -101,9 +102,11 @@ export default function VarietiesPage() {
                 <Card className="cat-bar" >
                   <button type="button" onClick={() => setOpenId(open ? null : v.id)} aria-expanded={open} className="w-full text-left focus-ring rounded-2xl">
                     <div className="flex items-start gap-3.5">
-                      <span className="grid place-items-center w-11 h-11 rounded-2xl shrink-0 text-white" style={{ backgroundColor: CAT }}>
-                        <Wheat size={21} />
-                      </span>
+                      {toImages(v)[0] ? (
+                        <img src={toImages(v)[0]!} alt={v.nameTh ?? v.id} className="w-11 h-11 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
+                      ) : (
+                        <span className="grid place-items-center w-11 h-11 rounded-2xl bg-leaf-100 text-leaf-700 shrink-0"><Sprout size={21} /></span>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-[11.5px] font-extrabold text-violet-900">
@@ -122,6 +125,7 @@ export default function VarietiesPage() {
 
                   {open && (
                     <div className="mt-5 space-y-5 border-t border-leaf-100 pt-5 animate-rise">
+                      <ImageGallery images={toImages(v)} alt={v.nameTh ?? v.id ?? ''} showPlaceholder />
                       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                         {[
                           { k: 'ผลผลิตสภาพปกติ', v: v.yield },
