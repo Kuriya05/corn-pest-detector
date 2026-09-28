@@ -279,3 +279,15 @@ export async function getStats() {
 }
 
 export { seedOf };
+
+/** ดึง overrides ดิบจาก DB ทั้งหมด (สำหรับ export) */
+export async function readStore(): Promise<Record<string, unknown[]>> {
+  await ensureSchema();
+  const client = getClient();
+  const result: Record<string, unknown[]> = {};
+  for (const col of COLLECTIONS) {
+    const rs = await client.execute({ sql: 'SELECT data FROM overrides WHERE collection = ?', args: [col] });
+    result[col] = rs.rows.map((r) => JSON.parse(r[0] as string));
+  }
+  return result;
+}
