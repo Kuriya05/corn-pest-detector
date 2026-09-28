@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ShieldCheck, Search, ChevronDown, Target, ListChecks, AlertTriangle, BadgeCheck } from 'lucide-react';
+import { ShieldCheck, Search, ChevronDown, Target, ListChecks, AlertTriangle, BadgeCheck, FlaskConical } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';

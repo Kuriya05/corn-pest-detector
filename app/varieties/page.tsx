@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Wheat, Search, ChevronDown, ShieldCheck, AlertTriangle, Sparkles, ShoppingBag, Target } from 'lucide-react';
+import { Wheat, Search, ChevronDown, ShieldCheck, AlertTriangle, Sparkles, ShoppingBag, Target, Sprout } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';

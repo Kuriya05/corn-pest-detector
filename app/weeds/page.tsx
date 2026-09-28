@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Sprout, Search, ChevronDown, AlertTriangle, Eye, Shield, FlaskConical, ListChecks, Clock } from 'lucide-react';
+import { Sprout, Leaf, Search, ChevronDown, AlertTriangle, Eye, Shield, FlaskConical, ListChecks, Clock } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';

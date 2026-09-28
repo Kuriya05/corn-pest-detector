@@ -113,8 +113,8 @@ export default function ChemicalsPage() {
                 <Card className="cat-bar">
                   <button type="button" onClick={() => setOpenId(open ? null : c.id)} aria-expanded={open} className="w-full text-left focus-ring rounded-2xl">
                     <div className="flex items-start gap-3.5">
-                      {c.imageUrl ? (
-                        <img src={c.imageUrl} alt={c.nameTh} className="w-11 h-11 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
+                      {toImages(c)[0] ? (
+                        <img src={toImages(c)[0]!} alt={c.nameTh} className="w-11 h-11 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
                       ) : (
                         <span
                           className="grid place-items-center w-11 h-11 rounded-2xl shrink-0 text-white"

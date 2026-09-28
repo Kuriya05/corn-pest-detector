@@ -170,7 +170,7 @@ export async function deleteItem(
     sql: 'SELECT item_id, is_seed, data FROM items WHERE collection = ? AND item_id = ?',
     args: [name, id],
   });
-  const row = rowRs.rows[0] as DbRow | undefined;
+  const row = rowRs.rows[0] as unknown as DbRow | undefined;
 
   let label = id;
   let permanent = false;
