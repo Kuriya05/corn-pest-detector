@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { put } from '@vercel/blob';
 import { requireAdmin } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -26,19 +25,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'ไฟล์ใหญ่เกิน 8 MB' }, { status: 413 });
     }
 
-    // ตั้งชื่อไฟล์: collection-itemid-timestamp.ext
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const safeId = itemId.replace(/[^a-z0-9-_]/gi, '-').slice(0, 40);
-    const filename = `${collection}-${safeId}-${Date.now()}.${ext}`;
+    const filename = `uploads/${collection}/${collection}-${safeId}-${Date.now()}.${ext}`;
 
-    const uploadDir = join(process.cwd(), 'public', 'uploads', collection);
-    await mkdir(uploadDir, { recursive: true });
+    const blob = await put(filename, file, {
+      access: 'public',
+      contentType: file.type,
+    });
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(join(uploadDir, filename), buffer);
-
-    const url = `/uploads/${collection}/${filename}`;
-    return NextResponse.json({ success: true, url, filename });
+    return NextResponse.json({ success: true, url: blob.url, filename });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'อัปโหลดไม่สำเร็จ';
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
