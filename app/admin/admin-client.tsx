@@ -209,7 +209,7 @@ export default function AdminClient({ username }: { username: string }) {
       )}
 
       {/* แถบเลือกหมวด */}
-      <div className="mt-6 flex gap-2 overflow-x-auto no-scrollbar pb-1">
+      <div className="mt-6 flex flex-wrap gap-2">
         {COLLECTIONS.map((c) => (
           <Chip
             key={c} active={collection === c}
