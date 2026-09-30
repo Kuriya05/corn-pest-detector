@@ -12,6 +12,7 @@ interface ImageGalleryProps {
 
 export function ImageGallery({ images, alt, showPlaceholder = false }: ImageGalleryProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [active, setActive] = useState(0);
 
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
   const gotoPrev   = useCallback(() => setLightboxIndex((i) => Math.max(0, (i ?? 0) - 1)), []);
@@ -43,34 +44,74 @@ export function ImageGallery({ images, alt, showPlaceholder = false }: ImageGall
     );
   }
 
-  const single = images.length === 1;
+  const cur = Math.min(active, images.length - 1);
 
   return (
     <>
-      {/* ── แถวรูปย่อ ── */}
-      <div className={`grid gap-2 ${single ? '' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-        {images.map((src, i) => (
+      {/* ── รูปหลัก: แสดงทั้งรูปไม่ครอป รองรับรูปแนวตั้ง ── */}
+      <div className="mx-auto w-full max-w-xl">
+        <div className="relative overflow-hidden rounded-3xl bg-leaf-950/[0.04] ring-1 ring-leaf-200">
           <button
-            key={i} type="button"
-            onClick={() => setLightboxIndex(i)}
-            aria-label={`ขยายรูปที่ ${i + 1}`}
-            className={`group relative rounded-2xl overflow-hidden ring-1 ring-leaf-200 hover:ring-leaf-400 focus-ring transition-all ${single ? 'col-span-full' : ''}`}
+            type="button"
+            onClick={() => setLightboxIndex(cur)}
+            aria-label="ขยายดูรูปเต็มจอ"
+            className="group block w-full focus-ring"
           >
             <img
-              src={src}
-              alt={`${alt} รูปที่ ${i + 1}`}
-              className={`w-full object-cover ${single ? 'max-h-72' : 'h-36'}`}
+              src={images[cur]}
+              alt={`${alt} รูปที่ ${cur + 1}`}
+              className="mx-auto h-[min(70vh,520px)] w-full object-contain"
             />
-            <span className="absolute inset-0 flex items-center justify-center bg-leaf-950/0 group-hover:bg-leaf-950/20 transition">
-              <ZoomIn size={24} className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg transition" />
+            <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-leaf-950/60 px-3 py-1.5 text-[12.5px] font-bold text-white backdrop-blur">
+              <ZoomIn size={15} /> กดเพื่อขยาย
             </span>
           </button>
-        ))}
-      </div>
 
-      {images.length > 1 && (
-        <p className="mt-1 text-right text-[13px] text-leaf-500">{images.length} รูป — กดเพื่อขยาย</p>
-      )}
+          {images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActive((i) => (i - 1 + images.length) % images.length)}
+                aria-label="รูปก่อนหน้า"
+                className="absolute left-2 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-full bg-white/85 text-leaf-900 shadow ring-1 ring-leaf-200 hover:bg-white focus-ring"
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActive((i) => (i + 1) % images.length)}
+                aria-label="รูปถัดไป"
+                className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-full bg-white/85 text-leaf-900 shadow ring-1 ring-leaf-200 hover:bg-white focus-ring"
+              >
+                <ChevronRight size={22} />
+              </button>
+              <span className="absolute top-3 left-3 rounded-full bg-leaf-950/60 px-2.5 py-1 text-[12px] font-bold text-white tabular-nums backdrop-blur">
+                {cur + 1} / {images.length}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* ── รูปย่อ ── */}
+        {images.length > 1 && (
+          <div className="mt-2.5 flex flex-wrap justify-center gap-2">
+            {images.map((src, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActive(i)}
+                aria-label={`ดูรูปที่ ${i + 1}`}
+                aria-current={i === cur}
+                className={`overflow-hidden rounded-xl ring-2 transition focus-ring ${
+                  i === cur ? 'ring-leaf-600' : 'ring-transparent opacity-70 hover:opacity-100'
+                }`}
+              >
+                <img src={src} alt="" className="h-16 w-16 object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Lightbox ── */}
       {lightboxIndex !== null && (
