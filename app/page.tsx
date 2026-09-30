@@ -10,12 +10,6 @@ import {
 import SiteShell from '@/components/site-shell';
 import { Card } from '@/components/ui';
 import { alertsForMonth, thaiMonths } from '@/lib/data/alerts';
-import { pests } from '@/lib/data/pests';
-import { diseases } from '@/lib/data/diseases';
-import { weeds } from '@/lib/data/weeds';
-import { varieties } from '@/lib/data/varieties';
-import { biologicals } from '@/lib/data/biologicals';
-import { allChemicals } from '@/lib/data/chemicals';
 import { deficiencies } from '@/lib/data/fertilizer';
 import { economics } from '@/lib/data/calendar';
 
@@ -129,13 +123,13 @@ export default function HomePage() {
             href="/pests"
             icon={<Bug size={22} />}
             title="คลังแมลงศัตรูข้าวโพด"
-            desc={`${pests.length} ชนิดที่พบในไทย พร้อมจุดสังเกต เกณฑ์ตัดสินใจพ่นสาร และอัตราใช้ตามกรมวิชาการเกษตร`}
+            desc={`แมลงศัตรูที่พบในไทย พร้อมจุดสังเกต เกณฑ์ตัดสินใจพ่นสาร และอัตราใช้ตามกรมวิชาการเกษตร`}
           />
           <FeatureCard
             href="/diseases"
             icon={<Leaf size={22} />}
             title="คลังโรคข้าวโพด"
-            desc={`${diseases.length} โรคสำคัญ พร้อมวิธีแยกโรคที่อาการคล้ายกัน และระบบวินิจฉัยจากอาการโดยไม่ต้องใช้รูป`}
+            desc={`โรคสำคัญ พร้อมวิธีแยกโรคที่อาการคล้ายกัน และระบบวินิจฉัยจากอาการโดยไม่ต้องใช้รูป`}
           />
           <FeatureCard
             href="/fertilizer"
@@ -153,25 +147,25 @@ export default function HomePage() {
             href="/weeds"
             icon={<Sprout size={22} />}
             title="คลังวัชพืชในไร่"
-            desc={`${weeds.length} ชนิดที่พบจริงในแปลงข้าวโพดไทย พร้อมวิธีจำแนก ช่วงวิกฤตที่ต้องปลอดวัชพืช และสารกำจัดที่ได้ผล`}
+            desc={`วัชพืชที่พบจริงในแปลงข้าวโพดไทย พร้อมวิธีจำแนก ช่วงวิกฤตที่ต้องปลอดวัชพืช และสารกำจัดที่ได้ผล`}
           />
           <FeatureCard
             href="/varieties"
             icon={<Wheat size={22} />}
             title="พันธุ์ข้าวโพดแนะนำ"
-            desc={`${varieties.length} พันธุ์รับรอง พร้อมผลผลิต อายุเก็บเกี่ยว ความต้านทานโรค และตารางเลือกพันธุ์ให้ตรงกับปัญหาในไร่`}
+            desc={`พันธุ์รับรอง พร้อมผลผลิต อายุเก็บเกี่ยว ความต้านทานโรค และตารางเลือกพันธุ์ให้ตรงกับปัญหาในไร่`}
           />
           <FeatureCard
             href="/biologicals"
             icon={<ShieldCheck size={22} />}
             title="ชีวภัณฑ์ & ศัตรูธรรมชาติ"
-            desc={`${biologicals.length} รายการควบคุมศัตรูพืชแบบปลอดภัยต่อคน ผึ้ง และแมลงดี พร้อมอัตราใช้ตามคำแนะนำทางราชการ`}
+            desc={`ชีวภัณฑ์ควบคุมศัตรูพืชแบบปลอดภัยต่อคน ผึ้ง และแมลงดี พร้อมอัตราใช้ตามคำแนะนำทางราชการ`}
           />
           <FeatureCard
             href="/chemicals"
             icon={<SprayCan size={22} />}
             title="คลังสารป้องกันกำจัด"
-            desc={`${allChemicals.length} สารออกฤทธิ์ ค้นจากชื่อสารหรือชื่อศัตรูพืช พร้อมอัตราใช้ กลุ่มสลับสาร และสารที่กฎหมายห้ามใช้แล้ว`}
+            desc={`สารออกฤทธิ์ ค้นจากชื่อสารหรือชื่อศัตรูพืช พร้อมอัตราใช้ กลุ่มสลับสาร และสารที่กฎหมายห้ามใช้แล้ว`}
           />
           <FeatureCard
             href="/knowledge"
