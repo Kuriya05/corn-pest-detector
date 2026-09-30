@@ -10,6 +10,8 @@ import SiteShell from '@/components/site-shell';
 import { PageHeader, Card, Callout, EmptyState } from '@/components/ui';
 import { COLLECTIONS, collectionLabels, titleField, type CollectionName } from '@/lib/collections';
 import { fieldLabels, longTextFields } from './field-labels';
+import { ObjectListEditor, LIST_SCHEMAS } from './object-list-editor';
+import { normSources, normChemicals } from '@/lib/normalize';
 
 type Item = Record<string, unknown> & { id: string; official?: boolean; edited?: boolean };
 
@@ -123,7 +125,7 @@ export default function AdminClient({ username }: { username: string }) {
         else if (typeof v === 'boolean') blank[k] = false;
         else if (typeof v === 'number') blank[k] = 0;
         else if (v && typeof v === 'object') blank[k] = {};
-        else blank[k] = '';
+        else blank[k] = typeof (fallback as Record<string, unknown>)[k] === 'string' ? (fallback as Record<string, unknown>)[k] : '';
       }
     }
     if (!('images' in blank)) blank.images = [];
@@ -595,6 +597,22 @@ function ItemEditor({
                     type="number" value={value} onChange={(e) => setField(key, Number(e.target.value))}
                     className="w-full rounded-2xl bg-white ring-1 ring-leaf-200 px-4 py-3 text-[15px] focus-ring"
                   />
+                </Field>
+              );
+            }
+
+            /* ---- รายการแบบมีหลายช่อง (แหล่งอ้างอิง / สารป้องกันกำจัด / กรณีการใช้) ---- */
+            const listSchema = LIST_SCHEMAS[key];
+            if (listSchema && (key !== 'chemicals' || collection === 'pests' || collection === 'diseases')) {
+              const isRows = Array.isArray(value) && value.every((x) => !!x && typeof x === 'object' && !Array.isArray(x));
+              const rows: Record<string, unknown>[] =
+                isRows ? (value as Record<string, unknown>[])
+                : key === 'sources' ? normSources(value)
+                : key === 'chemicals' ? normChemicals(value)
+                : (Array.isArray(value) ? value : []).filter((x): x is Record<string, unknown> => !!x && typeof x === 'object');
+              return (
+                <Field key={key} label={label}>
+                  <ObjectListEditor schema={listSchema} value={rows} onChange={(next) => setField(key, next)} />
                 </Field>
               );
             }

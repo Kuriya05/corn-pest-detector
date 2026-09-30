@@ -114,6 +114,11 @@ export default function DetectPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] items-start">
         {/* ---------- ฝั่งซ้าย: อัปโหลดและพรีวิว ---------- */}
         <Card className="lg:sticky lg:top-24">
+          {/* input อยู่นอกเงื่อนไข เพื่อให้ปุ่ม "เปลี่ยนรูป" ใช้งานได้หลังมีรูปแล้ว */}
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden
+            onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+          <input ref={inputRef} type="file" accept="image/*" hidden
+            onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
           {!preview ? (
             <div
               onDragOver={(e) => e.preventDefault()}
@@ -145,10 +150,6 @@ export default function DetectPage() {
                 </button>
               </div>
 
-              <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden
-                onChange={(e) => pick(e.target.files?.[0])} />
-              <input ref={inputRef} type="file" accept="image/*" hidden
-                onChange={(e) => pick(e.target.files?.[0])} />
             </div>
           ) : (
             <div>

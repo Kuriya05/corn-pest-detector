@@ -6,6 +6,7 @@
  */
 
 import { getClient, ensureSchema } from './db';
+import { normalizeItem } from './normalize';
 import { pests } from './data/pests';
 import { diseases } from './data/diseases';
 import { biologicals } from './data/biologicals';
@@ -98,10 +99,10 @@ export async function getCollection(name: CollectionName): Promise<MergedItem[]>
     .filter((it) => !deletedSeedIds.has(it.id))
     .map((it) => {
       const edit = editMap.get(it.id);
-      return { ...(edit ?? it), official: true, edited: Boolean(edit) } as MergedItem;
+      return { ...(edit ? normalizeItem(name, edit) : it), official: true, edited: Boolean(edit) } as MergedItem;
     });
 
-  const added = addedItems.map((it) => ({ ...it, official: false, edited: false }) as MergedItem);
+  const added = addedItems.map((it) => ({ ...normalizeItem(name, it), official: false, edited: false }) as MergedItem);
 
   return [...base, ...added];
 }

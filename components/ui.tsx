@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { normSeverity } from '@/lib/normalize';
 import { ChevronDown, ExternalLink, AlertTriangle, Info, BookMarked } from 'lucide-react';
 import type { Severity, SourceRef } from '@/lib/data/types';
 import { severityLabel, severityStyle } from '@/lib/data/types';
@@ -37,10 +38,11 @@ export function PageHeader({
   );
 }
 
-export function SeverityBadge({ level }: { level: Severity }) {
+export function SeverityBadge({ level }: { level: Severity | string | undefined }) {
+  const lv = normSeverity(level);
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11.5px] font-extrabold ring-1 ${severityStyle[level]}`}>
-      {severityLabel[level]}
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11.5px] font-extrabold ring-1 ${severityStyle[lv]}`}>
+      {severityLabel[lv]}
     </span>
   );
 }
@@ -152,8 +154,11 @@ export function SourceList({ sources, compact }: { sources: SourceRef[]; compact
         <BookMarked size={14} /> แหล่งอ้างอิง
       </p>
       <ul className="space-y-1.5">
-        {sources.map((s) => (
-          <li key={s.url + s.label}>
+        {sources.map((s, i) => (
+          <li key={i}>
+            {!s.url ? (
+              <span className="text-[13px] text-soil-800">{s.label}</span>
+            ) : (
             <a
               href={s.url}
               target="_blank"
@@ -163,6 +168,7 @@ export function SourceList({ sources, compact }: { sources: SourceRef[]; compact
               <span>{s.label}</span>
               <ExternalLink size={12} className="shrink-0 mt-1" />
             </a>
+            )}
           </li>
         ))}
       </ul>
@@ -213,13 +219,15 @@ export function ChemicalTable({
                   {r.name}
                   {r.note && <span className="block font-normal text-[12.5px] text-leaf-600 mt-1">{r.note}</span>}
                 </td>
-                <td className="px-4 py-3 text-leaf-700 whitespace-nowrap">{r.formulation ?? '—'}</td>
-                <td className="px-4 py-3 text-leaf-700 whitespace-nowrap">{r.group ?? '—'}</td>
-                <td className="px-4 py-3 font-bold text-leaf-800">{r.rate}</td>
+                <td className="px-4 py-3 text-leaf-700 whitespace-nowrap">{r.formulation || '—'}</td>
+                <td className="px-4 py-3 text-leaf-700 whitespace-nowrap">{r.group || '—'}</td>
+                <td className="px-4 py-3 font-bold text-leaf-800">{r.rate || '—'}</td>
                 <td className="px-4 py-3">
-                  <span className="inline-block rounded-full bg-leaf-100 px-2.5 py-0.5 text-[12px] font-bold text-leaf-800 whitespace-nowrap">
-                    {r.method}
-                  </span>
+                  {r.method ? (
+                    <span className="inline-block rounded-full bg-leaf-100 px-2.5 py-0.5 text-[12px] font-bold text-leaf-800 whitespace-nowrap">
+                      {r.method}
+                    </span>
+                  ) : '—'}
                 </td>
               </tr>
             ))}
@@ -232,14 +240,16 @@ export function ChemicalTable({
           <li key={i} className="rounded-3xl ring-1 ring-leaf-100 bg-white/80 p-4">
             <div className="flex items-start justify-between gap-2 mb-1.5">
               <p className="font-extrabold text-[14.5px] text-leaf-900">{r.name}</p>
-              <span className="shrink-0 rounded-full bg-leaf-100 px-2.5 py-0.5 text-[11.5px] font-bold text-leaf-800">
-                {r.method}
-              </span>
+              {r.method && (
+                <span className="shrink-0 rounded-full bg-leaf-100 px-2.5 py-0.5 text-[11.5px] font-bold text-leaf-800">
+                  {r.method}
+                </span>
+              )}
             </div>
             <p className="text-[13px] text-leaf-600 mb-1">
               {[r.formulation, r.group].filter(Boolean).join(' · ') || '—'}
             </p>
-            <p className="text-[14px] font-bold text-leaf-800">{r.rate}</p>
+            {r.rate && <p className="text-[14px] font-bold text-leaf-800">{r.rate}</p>}
             {r.note && <p className="mt-1.5 text-[12.5px] text-leaf-600">{r.note}</p>}
           </li>
         ))}
