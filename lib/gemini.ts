@@ -20,8 +20,8 @@ export function getApiKey(): string {
   const key = process.env.GEMINI_API_KEY || process.env.ROBOFLOW_API_KEY || '';
   if (!key) {
     throw new GeminiError(
-      'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ในไฟล์ .env.local — ขอคีย์ได้ที่ https://aistudio.google.com/apikey',
-      503,
+      'ระบบยังไม่ได้ตั้งค่าคีย์ AI (GEMINI_API_KEY) — ผู้ดูแลต้องเพิ่มใน Vercel → Settings → Environment Variables (บนเครื่องใช้ไฟล์ .env.local)',
+      500,
     );
   }
   return key;
