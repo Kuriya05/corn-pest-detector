@@ -180,28 +180,28 @@ export default function DiseasesPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-[13px]">
-              <div className="flex items-center gap-1.5">
+              <div className="flex w-full sm:w-auto flex-col sm:flex-row sm:items-center gap-1.5">
                 <span className="text-leaf-500">ความรุนแรง</span>
-                <div className="flex rounded-xl bg-white ring-1 ring-leaf-200 p-0.5">
+                <div className="flex max-w-full overflow-x-auto no-scrollbar rounded-xl bg-white ring-1 ring-leaf-200 p-0.5">
                   {(['all', 'critical', 'high', 'medium', 'low'] as const).map((l) => (
                     <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)}
-                      className={`rounded-[10px] px-3 py-1.5 font-semibold transition focus-ring ${level === l ? 'bg-leaf-900 text-white' : 'text-leaf-700 hover:bg-leaf-50'}`}>
+                      className={`rounded-[10px] px-3 py-2 sm:py-1.5 font-semibold whitespace-nowrap shrink-0 transition focus-ring ${level === l ? 'bg-leaf-900 text-white' : 'text-leaf-700 hover:bg-leaf-50'}`}>
                       {l === 'all' ? 'ทั้งหมด' : LEVELS[l].label}
                     </button>
                   ))}
                 </div>
               </div>
               <button type="button" aria-pressed={favOnly} onClick={() => setFavOnly((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 font-semibold ring-1 transition focus-ring ${favOnly ? 'bg-leaf-900 text-white ring-leaf-900' : 'bg-white text-leaf-700 ring-leaf-200'}`}>
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 sm:py-2 font-semibold ring-1 transition focus-ring ${favOnly ? 'bg-leaf-900 text-white ring-leaf-900' : 'bg-white text-leaf-700 ring-leaf-200'}`}>
                 <Bookmark size={14} fill={favOnly ? 'currentColor' : 'none'} /> ที่บันทึกไว้
               </button>
               <button type="button" onClick={() => setSort(sort === 'danger' ? 'name' : 'danger')}
-                className="rounded-xl bg-white px-3 py-2 font-semibold text-leaf-700 ring-1 ring-leaf-200 focus-ring">
+                className="rounded-xl bg-white px-3.5 py-2.5 sm:py-2 font-semibold text-leaf-700 ring-1 ring-leaf-200 focus-ring">
                 เรียงตาม: {sort === 'danger' ? 'ความรุนแรง' : 'ชื่อ ก–ฮ'}
               </button>
               <div className="ml-auto flex rounded-xl bg-white ring-1 ring-leaf-200 p-0.5" role="group" aria-label="รูปแบบการแสดงผล">
-                <button type="button" aria-label="แบบการ์ด" aria-pressed={view === 'grid'} onClick={() => setView('grid')} className={`grid place-items-center w-9 h-8 rounded-[10px] focus-ring ${view === 'grid' ? 'bg-leaf-900 text-white' : 'text-leaf-600'}`}><LayoutGrid size={15} /></button>
-                <button type="button" aria-label="แบบรายการ" aria-pressed={view === 'list'} onClick={() => setView('list')} className={`grid place-items-center w-9 h-8 rounded-[10px] focus-ring ${view === 'list' ? 'bg-leaf-900 text-white' : 'text-leaf-600'}`}><Rows3 size={15} /></button>
+                <button type="button" aria-label="แบบการ์ด" aria-pressed={view === 'grid'} onClick={() => setView('grid')} className={`grid place-items-center w-11 h-10 sm:w-9 sm:h-8 rounded-[10px] focus-ring ${view === 'grid' ? 'bg-leaf-900 text-white' : 'text-leaf-600'}`}><LayoutGrid size={15} /></button>
+                <button type="button" aria-label="แบบรายการ" aria-pressed={view === 'list'} onClick={() => setView('list')} className={`grid place-items-center w-11 h-10 sm:w-9 sm:h-8 rounded-[10px] focus-ring ${view === 'list' ? 'bg-leaf-900 text-white' : 'text-leaf-600'}`}><Rows3 size={15} /></button>
               </div>
             </div>
           </div>

@@ -201,3 +201,14 @@ html.a11y-contrast body { background: #fff; }
 html.a11y-contrast a:not([class*="bg-"]) { text-decoration: underline; }
 html.a11y-contrast .card-glass, html.a11y-contrast [class*="border-[#f1e7d3]"] { border-color: #1c1c1c !important; }
 html.a11y-contrast :focus-visible { outline: 3px solid #000 !important; outline-offset: 3px !important; }
+
+/* ---------- มือถือ ---------- */
+/* ลูกของกริดต้องหดได้ ไม่งั้นข้อความที่ truncate ดันคอลัมน์กว้างเกินจอ */
+main .grid > *, main .flex > * { min-width: 0; }
+@media (max-width: 640px) {
+  /* ตัวอักษรเล็กกว่า 12px อ่านยากบนจอมือถือ — ขยายขั้นต่ำ */
+  [class*="text-\[10"], [class*="text-\[11"] { font-size: 12.5px !important; }
+  [class*="text-\[12px"], [class*="text-\[12.5"] { font-size: 13px !important; }
+  /* พื้นที่กดให้ใหญ่พอสำหรับนิ้ว */
+  footer a { padding-block: 0.55rem; }
+}

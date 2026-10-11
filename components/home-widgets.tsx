@@ -121,7 +121,7 @@ export function RecentScans() {
       <div className="flex items-center gap-3 mb-3">
         <span className="grid place-items-center w-10 h-10 rounded-xl bg-sky-50 text-sky-700"><History size={21} /></span>
         <h3 className="font-extrabold text-[17px] text-leaf-900 flex-1">สแกนล่าสุดของคุณ</h3>
-        <Link href="/history" className="text-[13px] font-bold text-leaf-700 hover:underline focus-ring rounded">ดูทั้งหมด</Link>
+        <Link href="/history" className="text-[13.5px] font-bold text-leaf-700 hover:underline focus-ring rounded-lg px-2 py-2.5 -my-2">ดูทั้งหมด</Link>
       </div>
 
       {scans === null ? (
