@@ -102,7 +102,7 @@ export function ImageGallery({ images, alt, showPlaceholder = false }: ImageGall
                 onClick={() => setActive(i)}
                 aria-label={`ดูรูปที่ ${i + 1}`}
                 aria-current={i === cur}
-                className={`overflow-hidden rounded-xl ring-2 transition focus-ring ${
+                className={`overflow-hidden rounded-2xl ring-2 transition focus-ring ${
                   i === cur ? 'ring-leaf-600' : 'ring-transparent opacity-70 hover:opacity-100'
                 }`}
               >
@@ -172,7 +172,7 @@ export function ImageGallery({ images, alt, showPlaceholder = false }: ImageGall
                   className={`rounded-full transition-all ${
                     i === lightboxIndex
                       ? 'w-7 h-3 bg-white'
-                      : 'w-3 h-3 bg-white/40 hover:bg-white/70'
+                      : 'w-3 h-3 bg-white/40 hover:bg-white'
                   }`}
                 />
               ))}

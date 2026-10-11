@@ -6,7 +6,8 @@ import { join, resolve } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { callGemini, parseJsonLoose, GeminiError } from '@/lib/gemini';
-import { SYSTEM_PROMPT, IMAGE_PROMPT, enrichFinding, type RawFinding, type Finding } from '@/lib/analysis';
+import { createHash } from 'crypto';
+import { SYSTEM_PROMPT, IMAGE_PROMPT, RESPONSE_SCHEMA, enrichFinding, consolidateFindings, type RawFinding, type Finding } from '@/lib/analysis';
 
 const execAsync = promisify(exec);
 
@@ -14,6 +15,29 @@ export const runtime = 'nodejs';
 export const maxDuration = 120;
 
 const MAX_BYTES = 12 * 1024 * 1024; // 12 MB
+const YOLO_TIMEOUT_MS = 40_000;
+const YOLO_GRACE_MS = 6_000;
+/** ชื่อคลาสของโมเดล YOLO (best.pt) → ชื่อไทย และคำค้นสำหรับจับคู่คลังโรค (ไม่ใส่ query = ยังไม่มีในคลัง) */
+const YOLO_DISEASES: Record<string, { th: string; query?: string }> = {
+  'Bacterial Leaf Blight': { th: 'โรคใบไหม้จากแบคทีเรีย' },
+  'Bacterial Wilt': { th: 'โรคเหี่ยวจากแบคทีเรีย' },
+  'Charcoal Rot': { th: 'โรคต้นเน่าสีดำ', query: 'Charcoal rot' },
+  'Corn Anthracnose': { th: 'โรคแอนแทรคโนส', query: 'Anthracnose stalk rot' },
+  'Corn Root Rot': { th: 'โรครากเน่า' },
+  'Fusarium Wilt': { th: 'โรคเหี่ยวฟิวซาเรียม', query: 'Fusarium stalk rot' },
+  'Maize Chlorotic Mottle Disease': { th: 'โรคใบด่างเหลืองซีด (MCMD)' },
+  'Maize Streak Disease': { th: 'โรคลายขีดข้าวโพด (Maize streak)' },
+  'Seedling Blight': { th: 'โรคต้นกล้าไหม้' },
+  'Sheath Blight': { th: 'โรคกาบและใบไหม้', query: 'Banded leaf and sheath blight' },
+};
+
+/** YOLO ที่เทรนน้อยมักมั่นใจเกินจริง รับเฉพาะผลที่มั่นใจพอและตรงกับคลังความรู้ */
+const YOLO_MIN_CONF = 50;
+
+/** แคชผลตามลายนิ้วมือของภาพ: ภาพเดิมได้ผลเดิม (กันผลเปลี่ยนทุกครั้ง) เก็บในหน่วยความจำของ instance */
+const CACHE_TTL_MS = 30 * 60_000;
+const CACHE_MAX = 60;
+const cache = new Map<string, { at: number; body: Record<string, unknown> }>();
 
 type GeminiResult = {
   is_corn?: boolean;
@@ -59,7 +83,7 @@ async function runYolo(imagePath: string): Promise<{ ok: boolean; boxes: Finding
   const cmd = `"${python}" "${script}" "${model}" "${imagePath}" ${conf}`;
 
   try {
-    const { stdout } = await execAsync(cmd, { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 });
+    const { stdout } = await execAsync(cmd, { timeout: YOLO_TIMEOUT_MS, maxBuffer: 8 * 1024 * 1024 });
     const start = stdout.indexOf('[');
     if (start === -1) return { ok: false, boxes: [], error: 'YOLO ไม่ได้ส่ง JSON กลับมา' };
 
@@ -67,20 +91,42 @@ async function runYolo(imagePath: string): Promise<{ ok: boolean; boxes: Finding
       class: string; confidence: number; box: { top: string; left: string; width: string; height: string };
     }[];
 
-    const boxes: Finding[] = parsed.map((p) => {
+    const boxes: Finding[] = parsed.filter((p) => p.confidence >= YOLO_MIN_CONF).map((p) => {
       const num = (v: string) => parseFloat(String(v).replace('%', '')) || 0;
-      const enriched = enrichFinding({ type: 'pest', name_th: p.class, name_en: p.class, confidence: p.confidence });
+      const box = { top: num(p.box.top), left: num(p.box.left), width: num(p.box.width), height: num(p.box.height) };
+      const known = YOLO_DISEASES[p.class];
+      // โมเดลนี้เทรนมาตรวจ "โรค" — จับคู่คลังความรู้เฉพาะชนิดที่ตรงกันจริง (กัน keyword กว้าง ๆ เช่น blight/rot จับผิดโรค)
+      if (known?.query) {
+        const enriched = enrichFinding({ type: 'disease', name_th: known.th, name_en: known.query, confidence: p.confidence });
+        return { ...enriched, source: 'yolo' as const, box };
+      }
       return {
-        ...enriched,
-        source: 'yolo',
-        box: { top: num(p.box.top), left: num(p.box.left), width: num(p.box.width), height: num(p.box.height) },
+        type: 'disease' as const,
+        nameTh: known?.th ?? p.class,
+        nameEn: p.class,
+        confidence: Math.round(p.confidence),
+        severity: 'medium' as const,
+        source: 'yolo' as const,
+        box,
       };
     });
 
     return { ok: true, boxes };
   } catch (err) {
-    return { ok: false, boxes: [], error: err instanceof Error ? err.message.slice(0, 200) : 'เรียก YOLO ไม่สำเร็จ' };
+    // ไม่เปิดเผย path ในเครื่องให้ผู้ใช้เห็น — log ไว้ฝั่งเซิร์ฟเวอร์แทน
+    const raw = err instanceof Error ? err.message : String(err);
+    console.warn('[yolo]', raw.slice(0, 400));
+    const friendly = /ultralytics/i.test(raw)
+      ? 'ยังไม่ได้ติดตั้งไลบรารี ultralytics ใน Python ของเครื่องนี้'
+      : /timed out|ETIMEDOUT|SIGTERM/i.test(raw) ? 'ประมวลผลนานเกินกำหนด' : 'เรียกใช้งานไม่สำเร็จ';
+    return { ok: false, boxes: [], error: friendly };
   }
+}
+
+/** บริบทจากผู้ใช้ — บอกโมเดลชัด ๆ ว่าเป็นข้อมูลประกอบ ห้ามใช้แทนสิ่งที่เห็นในภาพ */
+function userContext(part: string, hint: string): string {
+  if (!part && !hint) return '';
+  return `\n\nข้อมูลจากผู้ใช้ (ใช้ประกอบเท่านั้น ถ้าขัดกับสิ่งที่เห็นในภาพให้ยึดภาพเป็นหลัก):${part ? `\n- ส่วนของต้นที่ถ่าย: ${part}` : ''}${hint ? `\n- อาการที่ผู้ใช้สังเกตเห็น: ${hint}` : ''}`;
 }
 
 export async function POST(request: Request) {
@@ -100,8 +146,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const fresh = form.get('fresh') === '1';
+    // ข้อมูลที่ผู้ใช้เลือกเอง (ส่วนของต้น/อาการที่เห็น) — ใช้เป็นบริบทเท่านั้น ตัดความยาวและอักขระแปลก ๆ ออก
+    const clean = (v: FormDataEntryValue | null, max: number) =>
+      typeof v === 'string' ? v.replace(/[^\p{L}\p{N}\s,./()-]/gu, '').trim().slice(0, max) : '';
+    const part = clean(form.get('part'), 30);
+    const hint = clean(form.get('hint'), 160);
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const hash = createHash('sha256').update(bytes).update(`|${part}|${hint}`).digest('hex');
+    const hit = cache.get(hash);
+    if (!fresh && hit && Date.now() - hit.at < CACHE_TTL_MS) {
+      return NextResponse.json({ ...hit.body, cached: true });
+    }
+
     const mime = file.type && file.type.startsWith('image/') ? file.type : 'image/jpeg';
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = bytes;
     const base64 = buffer.toString('base64');
 
     // เขียนไฟล์ชั่วคราวไว้ให้ YOLO อ่าน (ไม่เขียนลง public/ เพื่อไม่ให้ไฟล์ค้างสะสม)
@@ -109,31 +168,48 @@ export async function POST(request: Request) {
     tempPath = join(dir, `upload-${Date.now()}.jpg`);
     await writeFile(tempPath, buffer);
 
-    // เรียก Gemini และ YOLO พร้อมกัน
-    const [aiResult, yoloResult] = await Promise.all([
-      callGemini({
-        system: SYSTEM_PROMPT,
-        parts: [{ text: IMAGE_PROMPT }, { inline_data: { mime_type: mime, data: base64 } }],
-        json: true,
-        temperature: 0.15,
-        maxOutputTokens: 3072,
-        timeoutMs: 100_000,
-      }),
-      runYolo(tempPath),
+    // เรียก Gemini และ YOLO พร้อมกัน — Gemini เป็นตัวหลัก, YOLO รอเพิ่มได้ไม่เกิน YOLO_GRACE_MS หลัง Gemini เสร็จ
+    // (โหลด PyTorch ครั้งแรกอาจช้า ต้องไม่ลากให้ผู้ใช้รอนาน)
+    const yoloPromise = runYolo(tempPath);
+    const aiResult = await callGemini({
+      system: SYSTEM_PROMPT,
+      parts: [{ text: IMAGE_PROMPT + userContext(part, hint) }, { inline_data: { mime_type: mime, data: base64 } }],
+      json: true,
+      schema: RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+      seed: 7,
+      temperature: 0,
+      maxOutputTokens: 3072,
+      timeoutMs: 100_000,
+    });
+    const yoloResult = await Promise.race([
+      yoloPromise,
+      new Promise<{ ok: boolean; boxes: Finding[]; error?: string }>((resolve) =>
+        setTimeout(() => resolve({ ok: false, boxes: [], error: 'ประมวลผลช้าเกินกำหนด (ข้ามไปก่อน)' }), YOLO_GRACE_MS),
+      ),
     ]);
 
     const parsed = parseJsonLoose<GeminiResult>(aiResult.text);
-    const findings = (parsed.findings ?? []).slice(0, 4).map(enrichFinding);
+    const imageQuality = parsed.image_quality ?? 'good';
+    const aiFindings = (parsed.findings ?? []).map(enrichFinding);
 
-    // ถ้า YOLO เจอแมลงที่ Gemini ไม่ได้รายงาน ให้เพิ่มเข้าไปเป็นข้อมูลเสริม
-    const known = new Set(findings.map((f) => f.nameTh));
-    const extraYolo = yoloResult.boxes.filter((b) => !known.has(b.nameTh)).slice(0, 3);
+    // ใช้ YOLO ยืนยัน/เติมกรอบให้ผลของ Gemini: ผลที่ตรงกันมั่นใจขึ้น, YOLO ที่ Gemini ไม่เห็นด้วยเก็บเป็นข้อมูลเสริม
+    const aiKeys = new Set(aiFindings.map((f) => f.kbId).filter(Boolean));
+    for (const f of aiFindings) {
+      const match = yoloResult.boxes.find((bx) => bx.kbId && bx.kbId === f.kbId);
+      if (match) {
+        f.source = 'both';
+        f.box = f.box ?? match.box;
+        f.confidence = Math.min(98, Math.max(f.confidence, Math.round((f.confidence + match.confidence) / 2) + 5));
+      }
+    }
+    const findings = consolidateFindings(aiFindings, imageQuality);
+    const extraYolo = yoloResult.boxes.filter((bx) => !aiKeys.has(bx.kbId)).slice(0, 3);
 
-    return NextResponse.json({
+    const body = {
       success: true,
       model: aiResult.model,
       isCorn: parsed.is_corn !== false,
-      imageQuality: parsed.image_quality ?? 'good',
+      imageQuality,
       plantPart: parsed.plant_part ?? 'ไม่ชัดเจน',
       growthStageGuess: parsed.growth_stage_guess ?? '',
       findings,
@@ -149,8 +225,15 @@ export async function POST(request: Request) {
       photoTip: parsed.photo_tip_th ?? '',
       analyzedAt: new Date().toISOString(),
       disclaimer:
-        'ผลวิเคราะห์จาก AI เป็นข้อมูลประกอบการตัดสินใจเท่านั้น ก่อนใช้สารเคมีให้อ่านฉลากผลิตภัณฑ์และปรึกษาเจ้าหน้าที่ส่งเสริมการเกษตรในพื้นที่ทุกครั้ง',
-    });
+        'AI ช่วยดูเบื้องต้นเท่านั้น ก่อนใช้สารเคมีอย่าลืมอ่านฉลากผลิตภัณฑ์ และถามเจ้าหน้าที่ส่งเสริมการเกษตรในพื้นที่อีกที',
+    };
+
+    // เก็บแคชเฉพาะผลที่ใช้ได้จริง (ไม่เก็บกรณีภาพไม่ชัดที่ควรถ่ายใหม่)
+    if (!body.needBetterPhoto) {
+      if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
+      cache.set(hash, { at: Date.now(), body });
+    }
+    return NextResponse.json(body);
   } catch (err) {
     const status = err instanceof GeminiError ? err.status : 500;
     const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';

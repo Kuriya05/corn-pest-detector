@@ -245,7 +245,7 @@ export default function AdminClient({ username }: { username: string }) {
             { k: 'ถูกแก้ไข', v: current.edited },
             { k: 'ถูกซ่อน', v: current.removed },
           ].map((s) => (
-            <div key={s.k} className="rounded-2xl bg-white/80 ring-1 ring-leaf-100 px-4 py-3">
+            <div key={s.k} className="rounded-2xl bg-white ring-1 ring-leaf-100 px-4 py-3">
               <p className="text-[21px] font-extrabold tabular-nums text-leaf-900 leading-none">{s.v}</p>
               <p className="mt-1 text-[12px] font-semibold text-leaf-600">{s.k}</p>
             </div>
@@ -329,20 +329,20 @@ export default function AdminClient({ username }: { username: string }) {
                       <button
                         type="button" onClick={() => restore(it.id)}
                         title="กู้คืนกลับเป็นข้อมูลต้นฉบับ"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[13px] font-bold text-leaf-700 ring-1 ring-leaf-200 hover:bg-leaf-50 transition focus-ring"
+                        className="inline-flex items-center gap-1.5 rounded-2xl bg-white px-3 py-2 text-[13px] font-bold text-leaf-700 ring-1 ring-leaf-200 hover:bg-leaf-50 transition focus-ring"
                       >
                         <RotateCcw size={15} /> กู้คืน
                       </button>
                     )}
                     <button
                       type="button" onClick={() => { setEditing({ ...it }); setIsNew(false); }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-leaf-700 px-3 py-2 text-[13px] font-bold text-white hover:bg-leaf-800 transition focus-ring"
+                      className="inline-flex items-center gap-1.5 rounded-2xl bg-leaf-700 px-3 py-2 text-[13px] font-bold text-white hover:bg-leaf-800 transition focus-ring"
                     >
                       <Pencil size={15} /> แก้ไข
                     </button>
                     <button
                       type="button" onClick={() => remove(it)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[13px] font-bold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50 transition focus-ring"
+                      className="inline-flex items-center gap-1.5 rounded-2xl bg-white px-3 py-2 text-[13px] font-bold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50 transition focus-ring"
                     >
                       <Trash2 size={15} /> ลบ
                     </button>
@@ -468,7 +468,7 @@ function ItemEditor({
               {isNew ? 'เพิ่มรายการใหม่' : `แก้ไข: ${String(draft.nameTh ?? draft.nutrient ?? draft.id)}`}
             </h2>
           </div>
-          <button type="button" onClick={onCancel} className="grid place-items-center w-10 h-10 rounded-xl bg-leaf-50 text-leaf-800 hover:bg-leaf-100 focus-ring" aria-label="ปิด">
+          <button type="button" onClick={onCancel} className="grid place-items-center w-10 h-10 rounded-2xl bg-leaf-50 text-leaf-800 hover:bg-leaf-100 focus-ring" aria-label="ปิด">
             <X size={20} />
           </button>
         </header>
@@ -533,7 +533,7 @@ function ItemEditor({
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingImage}
-                      className="inline-flex items-center gap-2 rounded-xl bg-leaf-700 px-4 py-2.5 text-[14px] font-bold text-white hover:bg-leaf-800 disabled:opacity-60 transition focus-ring"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-leaf-700 px-4 py-2.5 text-[14px] font-bold text-white hover:bg-leaf-800 disabled:opacity-60 transition focus-ring"
                     >
                       {uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
                       {uploadingImage ? 'กำลังอัปโหลด…' : 'เพิ่มรูปภาพ'}
@@ -541,7 +541,7 @@ function ItemEditor({
                     <input
                       type="url"
                       placeholder="วาง URL รูปแล้วกด Enter…"
-                      className="flex-1 min-w-[200px] rounded-xl bg-white ring-1 ring-leaf-200 px-3 py-2.5 text-[14px] focus-ring"
+                      className="flex-1 min-w-[200px] rounded-2xl bg-white ring-1 ring-leaf-200 px-3 py-2.5 text-[14px] focus-ring"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           const val = (e.target as HTMLInputElement).value.trim();

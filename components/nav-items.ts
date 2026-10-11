@@ -22,6 +22,7 @@ export const moreItems: NavItem[] = [
   { href: '/varieties', label: 'พันธุ์ข้าวโพด', short: 'พันธุ์', icon: 'wheat', desc: 'เลือกพันธุ์ให้ตรงกับพื้นที่', cat: '#7c3aed' },
   { href: '/biologicals', label: 'ชีวภัณฑ์ & ศัตรูธรรมชาติ', short: 'ชีวภัณฑ์', icon: 'shield', desc: 'ควบคุมศัตรูพืชแบบปลอดภัย', cat: '#0d9488' },
   { href: '/chemicals', label: 'คลังสารป้องกันกำจัด', short: 'สารเคมี', icon: 'spray', desc: 'ค้นสาร อัตราใช้ และกลุ่มสลับสาร', cat: '#be123c' },
+  { href: '/shop', label: 'ซื้อ–ขาย', short: 'ซื้อขาย', icon: 'store', desc: 'ช่องทางซื้อของใช้ในไร่ และขายผลผลิต' },
   { href: '/history', label: 'ประวัติการสแกน', short: 'ประวัติ', icon: 'clock', desc: 'ผลตรวจย้อนหลังในเครื่องนี้' },
   { href: '/knowledge', label: 'ค้นหาข้ามทุกคลัง', short: 'ค้นหา', icon: 'book', desc: 'พิมพ์อาการแล้วค้นทุกหมวดพร้อมกัน' },
   { href: '/help', label: 'คู่มือการใช้งาน', short: 'คู่มือ', icon: 'help', desc: 'วิธีถ่ายรูปและใช้ระบบ' },

@@ -45,11 +45,15 @@ type CallOptions = {
   /** ข้อความกำกับบทบาทของโมเดล */
   system?: string;
   timeoutMs?: number;
+  /** โครงสร้าง JSON ที่บังคับให้โมเดลตอบ (Gemini responseSchema) */
+  schema?: Record<string, unknown>;
+  /** seed คงที่ ช่วยให้ภาพเดิมได้คำตอบเดิม */
+  seed?: number;
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function callOnce(model: string, key: string, opts: CallOptions): Promise<string> {
+async function callOnce(model: string, key: string, opts: CallOptions, strict = true): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 90_000);
 
@@ -59,6 +63,9 @@ async function callOnce(model: string, key: string, opts: CallOptions): Promise<
       temperature: opts.temperature ?? 0.2,
       maxOutputTokens: opts.maxOutputTokens ?? 4096,
       ...(opts.json ? { responseMimeType: 'application/json' } : {}),
+      // ตัวเลือกเสริมเพื่อความเสถียร — ถ้าโมเดลไม่รองรับ (400) จะลองใหม่แบบไม่ใส่ (strict = false)
+      ...(strict && opts.json && opts.schema ? { responseSchema: opts.schema } : {}),
+      ...(strict && opts.seed !== undefined ? { seed: opts.seed, topK: 1 } : {}),
     },
   };
   if (opts.system) {
@@ -103,14 +110,24 @@ export async function callGemini(opts: CallOptions): Promise<{ text: string; mod
   for (const model of models) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const text = await callOnce(model, key, opts);
+        let text: string;
+        try {
+          text = await callOnce(model, key, opts, true);
+        } catch (err) {
+          // 400 อาจมาจาก schema/seed ที่โมเดลรุ่นนี้ไม่รองรับ — ลองใหม่แบบเรียบง่ายหนึ่งครั้ง
+          const st = err instanceof GeminiError ? err.status : 0;
+          if (st === 400 && (opts.schema || opts.seed !== undefined)) text = await callOnce(model, key, opts, false);
+          else throw err;
+        }
         return { text, model };
       } catch (err) {
         lastError = err;
         const status = err instanceof GeminiError ? err.status : 0;
 
         // คีย์ผิด/หมดสิทธิ์ — ไม่ต้องลองต่อ
-        if (status === 400 || status === 401 || status === 403) throw err;
+        if (status === 401 || status === 403) throw err;
+        // คำขอไม่ถูกต้องแม้ในโหมดเรียบง่าย — โมเดลถัดไปอาจรับได้
+        if (status === 400) break;
         // โมเดลนี้ไม่มีแล้ว — ข้ามไปโมเดลถัดไปทันที
         if (status === 404) break;
         // คิวเต็ม — ลองซ้ำครั้งเดียวแล้วเปลี่ยนไปโมเดลถัดไปเลย จะได้ไม่ให้ผู้ใช้รอนาน

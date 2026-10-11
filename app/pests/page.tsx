@@ -1,207 +1,373 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Bug, Search, ChevronDown, AlertTriangle, Sprout, Shield, FlaskConical, Eye, Clock } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Search, AlertTriangle, Sprout, Shield, FlaskConical, Eye, Clock, X, Bookmark, Shuffle,
+  LayoutGrid, Rows3, ArrowUpRight, Worm, Bug, Rat, Droplets, Snail, type LucideIcon,
+} from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { PageHeader, Card, Chip, Callout, SeverityBadge, BulletList, SourceList, ChemicalTable, EmptyState } from '@/components/ui';
+import { Callout, BulletList, SourceList, ChemicalTable, EmptyState } from '@/components/ui';
 import { pests as seedPests } from '@/lib/data/pests';
 import { useCollection } from '@/lib/use-collection';
-import type { Pest } from '@/lib/data/types';
-import type { Severity } from '@/lib/data/types';
+import { normSeverity } from '@/lib/normalize';
+import type { Pest, Severity } from '@/lib/data/types';
 
-const filters: { id: 'all' | Severity; label: string }[] = [
-  { id: 'all', label: 'ทั้งหมด' },
-  { id: 'critical', label: 'รุนแรงที่สุด' },
-  { id: 'high', label: 'รุนแรง' },
-  { id: 'medium', label: 'ปานกลาง' },
-  { id: 'low', label: 'เฝ้าระวัง' },
+/* ---------- จัดกลุ่มศัตรูจากชื่อ (ไม่ต้องแก้ข้อมูลต้นทาง) ---------- */
+type GroupId = 'worm' | 'sucker' | 'beetle' | 'hopper' | 'rodent' | 'other';
+const GROUPS: { id: GroupId; label: string; Icon: LucideIcon }[] = [
+  { id: 'worm', label: 'หนอน', Icon: Worm },
+  { id: 'sucker', label: 'เพลี้ย / ไร', Icon: Droplets },
+  { id: 'beetle', label: 'ด้วง / มอด', Icon: Bug },
+  { id: 'hopper', label: 'ตั๊กแตน', Icon: Sprout },
+  { id: 'rodent', label: 'หนู / สัตว์', Icon: Rat },
+  { id: 'other', label: 'อื่น ๆ', Icon: Snail },
 ];
+function groupOf(p: Pest): GroupId {
+  const n = p.nameTh ?? '';
+  if (n.includes('หนู')) return 'rodent';
+  if (n.includes('ตั๊กแตน')) return 'hopper';
+  if (n.includes('เพลี้ย') || n.includes('ไร')) return 'sucker';
+  if (n.includes('ด้วง') || n.includes('มอด')) return 'beetle';
+  if (n.includes('หนอน')) return 'worm';
+  return 'other';
+}
+const groupMeta = (id: GroupId) => GROUPS.find((g) => g.id === id)!;
+
+/** โทนสีของระดับความรุนแรง — เรียบ ไม่ฉูดฉาด */
+const LEVELS: Record<Severity, { label: string; dot: string; band: string; text: string }> = {
+  critical: { label: 'รุนแรงที่สุด', dot: 'bg-rose-600', band: 'bg-rose-600', text: 'text-rose-700' },
+  high: { label: 'รุนแรง', dot: 'bg-orange-500', band: 'bg-orange-500', text: 'text-orange-700' },
+  medium: { label: 'ปานกลาง', dot: 'bg-amber-400', band: 'bg-amber-400', text: 'text-amber-700' },
+  low: { label: 'เฝ้าระวัง', dot: 'bg-sky-400', band: 'bg-sky-400', text: 'text-sky-700' },
+};
+const RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+function Level({ level }: { level: Severity }) {
+  const m = LEVELS[level];
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-semibold ${m.text}`}>
+      <span className={`w-2 h-2 rounded-full ${m.dot}`} aria-hidden />
+      {m.label}
+    </span>
+  );
+}
+
+const FAV_KEY = 'maize_pest_favs';
+const no = (i: number) => String(i + 1).padStart(2, '0');
 
 export default function PestsPage() {
   const { items: pests } = useCollection<Pest>('pests', seedPests);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | Severity>('all');
+  const [group, setGroup] = useState<'all' | GroupId>('all');
+  const [level, setLevel] = useState<'all' | Severity>('all');
+  const [sort, setSort] = useState<'danger' | 'name'>('danger');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [favOnly, setFavOnly] = useState(false);
+  const [favs, setFavs] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  // เปิดรายการที่ถูกลิงก์มาจากหน้าสแกนโดยอัตโนมัติ
   useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFavs(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
+    } catch { /* ใช้ต่อได้โดยไม่มีที่เก็บ */ }
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
-    if (hash) {
-      setOpenId(hash);
-      setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
-    }
+    if (hash) setOpenId(hash); // ลิงก์มาจากหน้าสแกน
   }, []);
+
+  const toggleFav = useCallback((id: string) => {
+    setFavs((cur) => {
+      const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+      try { localStorage.setItem(FAV_KEY, JSON.stringify(next)); } catch { /* ข้าม */ }
+      return next;
+    });
+  }, []);
+
+  // เลขทะเบียนคงที่ตามลำดับในข้อมูล ไม่เปลี่ยนตามตัวกรอง
+  const regNo = useMemo(() => new Map(pests.map((p, i) => [p.id, no(i)])), [pests]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return pests.filter((p) => {
-      const okFilter = filter === 'all' || p.severity === filter;
-      if (!okFilter) return false;
+    const out = pests.filter((p) => {
+      if (group !== 'all' && groupOf(p) !== group) return false;
+      if (level !== 'all' && normSeverity(p.severity) !== level) return false;
+      if (favOnly && !favs.includes(p.id)) return false;
       if (!q) return true;
-      return [p.nameTh, p.nameEn, p.scientific, p.summary, ...(p.aliases ?? []), ...p.damage]
+      return [p.nameTh, p.nameEn, p.scientific, p.summary, ...(p.aliases ?? []), ...(p.damage ?? [])]
         .join(' ').toLowerCase().includes(q);
     });
-  }, [pests, query, filter]);
+    return out.sort((a, b) =>
+      sort === 'name'
+        ? (a.nameTh ?? '').localeCompare(b.nameTh ?? '', 'th')
+        : RANK[normSeverity(a.severity)] - RANK[normSeverity(b.severity)] || (a.nameTh ?? '').localeCompare(b.nameTh ?? '', 'th'),
+    );
+  }, [pests, query, group, level, sort, favOnly, favs]);
 
-  const counts = useMemo(
-    () => Object.fromEntries(filters.map((f) => [f.id, f.id === 'all' ? pests.length : pests.filter((p) => p.severity === f.id).length])),
-    [pests],
-  );
+  const groupCount = (id: GroupId) => pests.filter((p) => groupOf(p) === id).length;
+  const severeCount = pests.filter((p) => ['critical', 'high'].includes(normSeverity(p.severity))).length;
+  const opened = pests.find((p) => p.id === openId) ?? null;
+
+  const surprise = () => {
+    const pool = list.length ? list : pests;
+    setOpenId(pool[Math.floor(Math.random() * pool.length)].id);
+  };
 
   return (
     <SiteShell>
-      <PageHeader
-        eyebrow="Pest Library"
-        title={`คลังแมลงศัตรูข้าวโพด (${pests.length} ชนิด)`}
-        description="ข้อมูลแมลงศัตรูข้าวโพดที่พบในประเทศไทย พร้อมจุดสังเกต ระยะที่เข้าทำลาย เกณฑ์ตัดสินใจพ่นสาร และอัตราการใช้สารตามคำแนะนำกรมวิชาการเกษตร"
-        icon={<Bug size={26} strokeWidth={2.3} />}
-      />
+      {/* ---------- หัวเรื่อง ---------- */}
+      <header className="mb-8 animate-rise">
+        <p className="mono-label text-[11px] uppercase text-leaf-600 mb-3">รู้จักศัตรูในไร่</p>
+        <div className="flex flex-col lg:flex-row lg:items-end gap-6 lg:gap-12">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-[34px] sm:text-[46px] text-leaf-950 leading-[1.12]">คลังแมลงศัตรูข้าวโพด</h1>
+            <p className="mt-3 text-[15.5px] text-leaf-700 max-w-xl leading-relaxed">
+              รวมศัตรูพืชที่เจอบ่อยในไร่ข้าวโพดไทย ดูหน้าตา จุดสังเกต พ่นสารตอนไหนถึงคุ้ม และมีวิธีไหนบ้างที่ไม่ต้องพ่นสาร
+            </p>
+          </div>
+          <dl className="flex divide-x divide-leaf-200 rounded-3xl bg-white border border-soil-200 px-2 py-4 self-start">
+            {[
+              { k: 'ชนิดที่รวมไว้', v: pests.length },
+              { k: 'ที่ต้องระวังมาก', v: severeCount },
+              { k: 'บันทึกไว้', v: favs.length },
+            ].map((s) => (
+              <div key={s.k} className="px-5 sm:px-7 text-center">
+                <dd className="text-[28px] font-display font-extrabold text-leaf-900 tabular-nums leading-none">{s.v}</dd>
+                <dt className="mt-1.5 text-[12px] text-leaf-600">{s.k}</dt>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </header>
 
-      <Callout tone="warn" title="อ่านก่อนใช้สารเคมี">
-        เอกสารกรมวิชาการเกษตรเน้นย้ำหลายจุดว่า <strong>ในหลายกรณีไม่จำเป็นต้องใช้สารฆ่าแมลงเลย</strong> เช่น ข้าวโพดฝักอ่อน
-        ข้าวโพดเลี้ยงสัตว์หลังติดเมล็ด และหนอนกระทู้หอมหลังข้าวโพดอายุ 2 สัปดาห์ — ให้สำรวจแปลงและเทียบกับเกณฑ์ตัดสินใจก่อนเสมอ
-        และตรวจสอบเปอร์เซ็นต์สูตรบนฉลากผลิตภัณฑ์จริง เพราะถ้า % ต่างกัน อัตราใช้ต้องเปลี่ยนตาม
+      <Callout tone="warn" title="ก่อนพ่นสาร ลองอ่านตรงนี้ก่อน">
+        หลายกรณี<strong>ไม่ต้องพ่นสารฆ่าแมลงเลย</strong> เช่น ข้าวโพดฝักอ่อน ข้าวโพดเลี้ยงสัตว์หลังติดเมล็ด หรือหนอนกระทู้หอมหลังข้าวโพดอายุ 2 สัปดาห์
+        เดินสำรวจแปลงแล้วเทียบกับเกณฑ์ก่อนตัดสินใจ และเช็ก % สูตรบนฉลากจริงด้วยนะครับ
       </Callout>
 
-      <div className="mt-6 mb-5 space-y-3">
-        <label className="relative block">
-          <Search size={19} className="absolute left-4 top-1/2 -translate-y-1/2 text-leaf-400 pointer-events-none" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหาชื่อแมลง หรือพิมพ์อาการ เช่น ยอดกุด ใบเป็นรู ฝักเสียหาย"
-            className="w-full rounded-2xl bg-white ring-1 ring-leaf-200 pl-12 pr-4 py-3.5 text-[15px] placeholder:text-leaf-400 focus-ring"
-          />
-        </label>
-
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-          {filters.map((f) => (
-            <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)} count={counts[f.id] as number}>
-              {f.label}
-            </Chip>
-          ))}
+      {/* ---------- ค้นหา + ตัวกรอง ---------- */}
+      <div className="mt-7 space-y-4">
+        <div className="flex gap-2.5">
+          <label className="relative block flex-1">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-leaf-400 pointer-events-none" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="พิมพ์ชื่อหรืออาการที่เห็น เช่น ยอดกุด ใบเป็นรู"
+              className="w-full rounded-2xl bg-white ring-1 ring-leaf-200 pl-11 pr-4 py-3.5 text-[15px] placeholder:text-leaf-400 focus-ring"
+            />
+          </label>
+          <button type="button" onClick={surprise} className="shrink-0 inline-flex items-center gap-2 rounded-2xl bg-leaf-900 px-5 text-[14px] font-semibold text-white hover:bg-leaf-800 transition focus-ring" aria-label="สุ่มเปิดศัตรูพืช">
+            <Shuffle size={16} /> <span className="hidden sm:inline">สุ่มเปิดดู</span>
+          </button>
         </div>
-      </div>
 
-      {list.length === 0 ? (
-        <EmptyState
-          icon={<Search size={24} />}
-          title="ไม่พบแมลงที่ตรงกับคำค้น"
-          hint="ลองใช้คำอื่น เช่น หนอน เพลี้ย ด้วง หรือพิมพ์อาการที่พบในแปลง"
-        />
-      ) : (
-        <div className="space-y-3.5">
-          {list.map((p) => {
-            const open = openId === p.id;
+        {/* แท็บกลุ่ม — ขีดเส้นใต้ ไม่ใช่เม็ดยา */}
+        <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-leaf-200">
+          {[{ id: 'all' as const, label: 'ทั้งหมด', Icon: null, count: pests.length }, ...GROUPS.filter((g) => groupCount(g.id) > 0).map((g) => ({ id: g.id, label: g.label, Icon: g.Icon, count: groupCount(g.id) }))].map((t) => {
+            const on = group === t.id;
             return (
-              <article key={p.id} id={p.id} className="scroll-mt-24">
-                <Card className={open ? 'ring-2 ring-leaf-300' : ''}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenId(open ? null : p.id)}
-                    aria-expanded={open}
-                    className="w-full text-left focus-ring rounded-2xl"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      {toImages(p)[0] ? (
-                        <img src={toImages(p)[0]!} alt={p.nameTh ?? p.id} className="w-11 h-11 rounded-2xl object-cover shrink-0 ring-1 ring-leaf-200" />
-                      ) : (
-                        <span className="grid place-items-center w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 shrink-0"><Bug size={21} /></span>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <SeverityBadge level={p.severity} />
-                          {p.aliases?.map((a) => (
-                            <span key={a} className="rounded-full bg-leaf-50 px-2.5 py-0.5 text-[11.5px] font-bold text-leaf-700">
-                              {a}
-                            </span>
-                          ))}
-                        </div>
-                        <h2 className="text-[18px] font-extrabold text-leaf-900">{p.nameTh}</h2>
-                        <p className="text-[12.5px] text-leaf-500">
-                          {p.nameEn} · <i>{p.scientific}</i>
-                        </p>
-                        <p className="mt-2 text-[14px] text-leaf-700">{p.summary}</p>
-                      </div>
-                      <ChevronDown size={20} className={`shrink-0 text-leaf-500 transition ${open ? 'rotate-180' : ''}`} />
-                    </div>
-                  </button>
-
-                  {open && (
-                    <div className="mt-5 space-y-5 border-t border-leaf-100 pt-5 animate-rise">
-                      <ImageGallery images={toImages(p)} alt={p.nameTh ?? p.id ?? ''} showPlaceholder />
-                      <Section icon={<Eye size={17} />} title="จุดสังเกตตัวแมลง">
-                        <BulletList items={p.identify} />
-                      </Section>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <InfoBox icon={<Clock size={16} />} title="ระยะที่เข้าทำลาย" text={p.stage} />
-                        <InfoBox icon={<Sprout size={16} />} title="ฤดู / สภาพอากาศที่ระบาด" text={p.season} />
-                      </div>
-
-                      <Section icon={<AlertTriangle size={17} />} title="อาการความเสียหายในแปลง">
-                        <BulletList items={p.damage} marker="warn" />
-                      </Section>
-
-                      {p.threshold && (
-                        <Callout tone="info" title="เกณฑ์ตัดสินใจพ่นสาร (ระดับเศรษฐกิจ)">{p.threshold}</Callout>
-                      )}
-
-                      {p.cultural.length > 0 && (
-                        <Section icon={<Shield size={17} />} title="วิธีเขตกรรม (ทำก่อนใช้สารเคมี)">
-                          <BulletList items={p.cultural} marker="check" />
-                        </Section>
-                      )}
-
-                      {p.biological.length > 0 && (
-                        <Section icon={<Sprout size={17} />} title="ชีววิธี — ปลอดภัยต่อคนและแมลงดี">
-                          <BulletList items={p.biological} marker="check" />
-                        </Section>
-                      )}
-
-                      <Section icon={<FlaskConical size={17} />} title="สารป้องกันกำจัดที่แนะนำ">
-                        <ChemicalTable rows={p.chemicals} />
-                      </Section>
-
-                      {p.warnings?.length ? (
-                        <Callout tone="danger" title="ข้อควรระวัง">
-                          <BulletList items={p.warnings} marker="warn" />
-                        </Callout>
-                      ) : null}
-
-                      <SourceList sources={p.sources} />
-                    </div>
-                  )}
-                </Card>
-              </article>
+              <button key={t.id} type="button" aria-pressed={on} onClick={() => setGroup(t.id)}
+                className={`shrink-0 inline-flex items-center gap-2 px-4 py-3 -mb-px border-b-2 text-[14px] font-semibold transition focus-ring ${on ? 'border-leaf-700 text-leaf-900' : 'border-transparent text-leaf-600 hover:text-leaf-900'}`}>
+                {t.Icon && <t.Icon size={16} />} {t.label}
+                <span className={`text-[12px] tabular-nums ${on ? 'text-leaf-600' : 'text-leaf-400'}`}>{t.count}</span>
+              </button>
             );
           })}
         </div>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-[13px]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-leaf-500">ความรุนแรง</span>
+            <div className="flex rounded-xl bg-white ring-1 ring-leaf-200 p-0.5">
+              {(['all', 'critical', 'high', 'medium', 'low'] as const).map((l) => (
+                <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)}
+                  className={`rounded-[10px] px-3 py-1.5 font-semibold transition focus-ring ${level === l ? 'bg-leaf-900 text-white' : 'text-leaf-700 hover:bg-leaf-50'}`}>
+                  {l === 'all' ? 'ทั้งหมด' : LEVELS[l].label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button type="button" aria-pressed={favOnly} onClick={() => setFavOnly((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 font-semibold ring-1 transition focus-ring ${favOnly ? 'bg-leaf-900 text-white ring-leaf-900' : 'bg-white text-leaf-700 ring-leaf-200'}`}>
+            <Bookmark size={14} fill={favOnly ? 'currentColor' : 'none'} /> ที่บันทึกไว้
+          </button>
+          <button type="button" onClick={() => setSort(sort === 'danger' ? 'name' : 'danger')}
+            className="rounded-xl bg-white px-3 py-2 font-semibold text-leaf-700 ring-1 ring-leaf-200 focus-ring">
+            เรียงตาม: {sort === 'danger' ? 'ความรุนแรง' : 'ชื่อ ก–ฮ'}
+          </button>
+          <div className="ml-auto flex rounded-xl bg-white ring-1 ring-leaf-200 p-0.5" role="group" aria-label="รูปแบบการแสดงผล">
+            <button type="button" aria-label="แบบการ์ด" aria-pressed={view === 'grid'} onClick={() => setView('grid')} className={`grid place-items-center w-9 h-8 rounded-[10px] focus-ring ${view === 'grid' ? 'bg-leaf-900 text-white' : 'text-leaf-600'}`}><LayoutGrid size={15} /></button>
+            <button type="button" aria-label="แบบรายการ" aria-pressed={view === 'list'} onClick={() => setView('list')} className={`grid place-items-center w-9 h-8 rounded-[10px] focus-ring ${view === 'list' ? 'bg-leaf-900 text-white' : 'text-leaf-600'}`}><Rows3 size={15} /></button>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------- รายการ ---------- */}
+      <p className="mt-6 mb-3 text-[13px] text-leaf-600">แสดง {list.length} จาก {pests.length} ชนิด</p>
+      {list.length === 0 ? (
+        <EmptyState icon={<Search size={24} />} title="ยังไม่เจอที่ตรงกับที่ค้นหา" hint="ลองล้างตัวกรอง หรือค้นด้วยคำอื่น เช่น หนอน เพลี้ย ด้วง หรืออาการที่พบในแปลง" />
+      ) : view === 'grid' ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((p) => (
+            <PestCard key={p.id} pest={p} reg={regNo.get(p.id) ?? ''} fav={favs.includes(p.id)} onFav={() => toggleFav(p.id)} onOpen={() => setOpenId(p.id)} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-3xl bg-white border border-soil-200 overflow-hidden divide-y divide-leaf-100">
+          {list.map((p) => (
+            <PestRow key={p.id} pest={p} reg={regNo.get(p.id) ?? ''} fav={favs.includes(p.id)} onFav={() => toggleFav(p.id)} onOpen={() => setOpenId(p.id)} />
+          ))}
+        </div>
       )}
+
+      {opened && <DetailSheet pest={opened} reg={regNo.get(opened.id) ?? ''} fav={favs.includes(opened.id)} onFav={() => toggleFav(opened.id)} onClose={() => setOpenId(null)} />}
     </SiteShell>
+  );
+}
+
+type CardProps = { pest: Pest; reg: string; fav: boolean; onFav: () => void; onOpen: () => void };
+
+function FavButton({ fav, onFav, className = '' }: { fav: boolean; onFav: () => void; className?: string }) {
+  return (
+    <button type="button" onClick={onFav} aria-pressed={fav} aria-label={fav ? 'เลิกบันทึก' : 'บันทึกไว้'}
+      className={`grid place-items-center w-9 h-9 rounded-full transition focus-ring ${fav ? 'bg-leaf-900 text-white' : 'bg-white text-leaf-500 hover:text-leaf-900'} ${className}`}>
+      <Bookmark size={15} fill={fav ? 'currentColor' : 'none'} />
+    </button>
+  );
+}
+
+/** การ์ดแบบแผ่นตัวอย่าง: ภาพ/สัญลักษณ์ด้านบน ข้อมูลทางวิชาการด้านล่าง */
+function PestCard({ pest, reg, fav, onFav, onOpen }: CardProps) {
+  const level = normSeverity(pest.severity);
+  const g = groupMeta(groupOf(pest));
+  const img = toImages(pest)[0];
+  return (
+    <article id={pest.id} className="relative scroll-mt-24">
+      <button type="button" onClick={onOpen} className="group w-full text-left rounded-3xl bg-white border border-soil-200 shadow-[0_1px_2px_rgb(23_71_48_/_0.05),0_14px_30px_-20px_rgb(23_71_48_/_0.35)] overflow-hidden transition hover:shadow-[0_18px_36px_-20px_rgb(23_71_48_/_0.5)]  focus-ring">
+        <div className="relative h-32 bg-leaf-50 overflow-hidden">
+          {img ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={img} alt={pest.nameTh ?? pest.id} className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <g.Icon size={84} strokeWidth={1} className="absolute -right-3 -bottom-4 text-leaf-300/70 rotate-[-12deg]" aria-hidden />
+          )}
+          <span className="absolute left-4 top-3.5 mono-label text-[11px] text-leaf-700/80">No.{reg}</span>
+          <span className={`absolute left-0 bottom-0 h-1 w-full ${LEVELS[level].band}`} aria-hidden />
+        </div>
+        <div className="p-5">
+          <p className="flex items-center gap-1.5 text-[12px] font-semibold text-leaf-600"><g.Icon size={14} /> {g.label}</p>
+          <h2 className="mt-1.5 text-[18px] font-bold text-leaf-950 leading-snug">{pest.nameTh}</h2>
+          <p className="text-[12.5px] text-leaf-500 italic truncate">{pest.scientific}</p>
+          <p className="mt-3 text-[13.5px] text-leaf-700 leading-relaxed line-clamp-2">{pest.summary}</p>
+          <div className="mt-4 pt-3.5 border-t border-leaf-100 flex items-center justify-between">
+            <Level level={level} />
+            <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-leaf-700 group-hover:text-leaf-950">รายละเอียด <ArrowUpRight size={14} /></span>
+          </div>
+        </div>
+      </button>
+      <FavButton fav={fav} onFav={onFav} className="absolute top-3 right-3 z-10 shadow-sm" />
+    </article>
+  );
+}
+
+function PestRow({ pest, reg, fav, onFav, onOpen }: CardProps) {
+  const level = normSeverity(pest.severity);
+  const g = groupMeta(groupOf(pest));
+  return (
+    <div id={pest.id} className="relative flex items-center gap-4 px-4 sm:px-5 py-3.5 hover:bg-leaf-50/60 transition scroll-mt-24">
+      <button type="button" onClick={onOpen} className="flex-1 min-w-0 flex items-center gap-4 text-left focus-ring rounded-xl">
+        <span className="mono-label text-[12px] text-leaf-400 w-6 shrink-0">{reg}</span>
+        <span className="grid place-items-center w-10 h-10 rounded-xl bg-leaf-100 text-leaf-700 shrink-0"><g.Icon size={19} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-bold text-[15.5px] text-leaf-950 truncate">{pest.nameTh}</span>
+          <span className="block text-[12.5px] italic text-leaf-500 truncate">{pest.scientific}</span>
+        </span>
+        <span className="hidden md:block w-28 text-[13px] text-leaf-600">{g.label}</span>
+        <span className="hidden sm:block w-32"><Level level={level} /></span>
+        <ArrowUpRight size={16} className="text-leaf-400 shrink-0" />
+      </button>
+      <FavButton fav={fav} onFav={onFav} className="ring-1 ring-leaf-100" />
+    </div>
+  );
+}
+
+function DetailSheet({ pest: p, reg, fav, onFav, onClose }: { pest: Pest; reg: string; fav: boolean; onFav: () => void; onClose: () => void }) {
+  const g = groupMeta(groupOf(p));
+  const level = normSeverity(p.severity);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[80] flex justify-end no-print" role="dialog" aria-modal="true" aria-label={p.nameTh}>
+      <button type="button" aria-label="ปิด" className="absolute inset-0 bg-leaf-950/35 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-2xl h-full overflow-y-auto bg-[#fbfdfb] shadow-2xl animate-rise">
+        <div className={`h-1.5 ${LEVELS[level].band}`} aria-hidden />
+        <div className="px-6 sm:px-8 pt-6 pb-6 border-b border-leaf-100">
+          <div className="flex items-start gap-3">
+            <p className="mono-label text-[11px] uppercase text-leaf-500 flex-1 pt-2">No.{reg} · {g.label}</p>
+            <FavButton fav={fav} onFav={onFav} className="ring-1 ring-leaf-200" />
+            <button type="button" onClick={onClose} aria-label="ปิด" className="grid place-items-center w-9 h-9 rounded-full bg-white text-leaf-800 ring-1 ring-leaf-200 focus-ring"><X size={17} /></button>
+          </div>
+          <h2 className="mt-2 text-[28px] sm:text-[32px] font-extrabold text-leaf-950 leading-tight">{p.nameTh}</h2>
+          <p className="mt-1 text-[14px] text-leaf-600"><span className="italic">{p.scientific}</span> · {p.nameEn}</p>
+          {(p.aliases?.length ?? 0) > 0 && <p className="mt-2 text-[13px] text-leaf-500">ชื่อเรียกอื่น: {p.aliases!.join(' · ')}</p>}
+          <div className="mt-4 flex items-center gap-4">
+            <Level level={level} />
+          </div>
+          <p className="mt-4 text-[15px] text-leaf-800 leading-relaxed">{p.summary}</p>
+        </div>
+
+        <div className="p-6 sm:p-8 space-y-8">
+          <ImageGallery images={toImages(p)} alt={p.nameTh ?? p.id ?? ''} showPlaceholder />
+
+          <Section icon={<Eye size={16} />} title="จุดสังเกตตัวแมลง"><BulletList items={p.identify ?? []} /></Section>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InfoBox icon={<Clock size={15} />} title="ระยะที่เข้าทำลาย" text={p.stage} />
+            <InfoBox icon={<Sprout size={15} />} title="ฤดู / สภาพอากาศที่ระบาด" text={p.season} />
+          </div>
+
+          <Section icon={<AlertTriangle size={16} />} title="อาการความเสียหายในแปลง"><BulletList items={p.damage ?? []} marker="warn" /></Section>
+
+          {p.threshold && <Callout tone="info" title="เกณฑ์ตัดสินใจพ่นสาร (ระดับเศรษฐกิจ)">{p.threshold}</Callout>}
+
+          {(p.cultural?.length ?? 0) > 0 && <Section icon={<Shield size={16} />} title="วิธีเขตกรรม (ทำก่อนใช้สารเคมี)"><BulletList items={p.cultural} marker="check" /></Section>}
+          {(p.biological?.length ?? 0) > 0 && <Section icon={<Sprout size={16} />} title="ชีววิธี — ปลอดภัยต่อคนและแมลงดี"><BulletList items={p.biological} marker="check" /></Section>}
+
+          <Section icon={<FlaskConical size={16} />} title="สารป้องกันกำจัดที่แนะนำ"><ChemicalTable rows={p.chemicals ?? []} /></Section>
+
+          {p.warnings?.length ? <Callout tone="danger" title="ข้อควรระวัง"><BulletList items={p.warnings} marker="warn" /></Callout> : null}
+
+          <SourceList sources={p.sources ?? []} />
+        </div>
+      </div>
+    </div>
   );
 }
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <h3 className="flex items-center gap-2 font-extrabold text-[15px] text-leaf-900 mb-2.5">
-        <span className="text-leaf-600">{icon}</span>
+    <section>
+      <h3 className="flex items-center gap-2 pb-2 mb-3 border-b border-leaf-100 font-bold text-[15.5px] text-leaf-950">
+        <span className="text-leaf-500">{icon}</span>
         {title}
       </h3>
       <div className="text-leaf-800">{children}</div>
-    </div>
+    </section>
   );
 }
 
 function InfoBox({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <div className="rounded-3xl bg-leaf-50 p-4">
-      <p className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-[0.12em] text-leaf-600 mb-1.5">
-        {icon} {title}
-      </p>
+    <div className="rounded-2xl bg-white ring-1 ring-leaf-100 p-4">
+      <p className="flex items-center gap-1.5 text-[12px] font-semibold text-leaf-500 mb-1.5">{icon} {title}</p>
       <p className="text-[14px] leading-relaxed text-leaf-900">{text}</p>
     </div>
   );

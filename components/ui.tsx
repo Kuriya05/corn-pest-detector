@@ -16,21 +16,17 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <header className="mb-7 animate-rise">
-      <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-        <div className="flex items-start gap-4 min-w-0 flex-1">
-          {icon && (
-            <span className="grid place-items-center w-12 h-12 sm:w-14 sm:h-14 rounded-3xl bg-leaf-700 text-corn-300 shrink-0 shadow-sm">
-              {icon}
-            </span>
+    <header className="mb-8 animate-rise">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-4 pb-5 border-b border-leaf-200">
+        <div className="min-w-0 flex-1">
+          {(eyebrow || icon) && (
+            <p className="mono-label flex items-center gap-2 text-[11px] uppercase text-leaf-600 mb-2">
+              {icon && <span className="grid place-items-center w-6 h-6 rounded-md bg-leaf-900 text-corn-300 [&>svg]:w-3.5 [&>svg]:h-3.5">{icon}</span>}
+              {eyebrow}
+            </p>
           )}
-          <div className="min-w-0">
-            {eyebrow && (
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-leaf-600 mb-1">{eyebrow}</p>
-            )}
-            <h1 className="text-[24px] sm:text-[30px] font-extrabold text-leaf-900">{title}</h1>
-            {description && <p className="mt-1.5 text-[14.5px] text-leaf-700 max-w-2xl">{description}</p>}
-          </div>
+          <h1 className="text-[28px] sm:text-[38px] font-extrabold text-leaf-900">{title}</h1>
+          {description && <p className="mt-2 text-[15px] text-leaf-700 max-w-2xl">{description}</p>}
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </div>
@@ -112,7 +108,7 @@ export function Disclosure({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-3xl ring-1 ring-leaf-100 bg-white/70 overflow-hidden">
+    <div className="rounded-3xl ring-1 ring-leaf-100 bg-white overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -212,7 +208,7 @@ export function ChemicalTable({
               <th className="text-left font-extrabold px-4 py-3">วิธีใช้</th>
             </tr>
           </thead>
-          <tbody className="bg-white/70">
+          <tbody className="bg-white">
             {rows.map((r, i) => (
               <tr key={i} className="border-t border-leaf-50 align-top">
                 <td className="px-4 py-3 font-bold text-leaf-900">
@@ -237,7 +233,7 @@ export function ChemicalTable({
 
       <ul className="md:hidden space-y-2.5">
         {rows.map((r, i) => (
-          <li key={i} className="rounded-3xl ring-1 ring-leaf-100 bg-white/80 p-4">
+          <li key={i} className="rounded-3xl ring-1 ring-leaf-100 bg-white p-4">
             <div className="flex items-start justify-between gap-2 mb-1.5">
               <p className="font-extrabold text-[14.5px] text-leaf-900">{r.name}</p>
               {r.method && (

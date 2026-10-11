@@ -91,7 +91,7 @@ export default function WeedsPage() {
           {weedOverview.steps.map((s, i) => (
             <li key={i} className="flex gap-3">
               <span
-                className="grid place-items-center w-7 h-7 rounded-xl text-[13px] font-extrabold text-white shrink-0"
+                className="grid place-items-center w-7 h-7 rounded-2xl text-[13px] font-extrabold text-white shrink-0"
                 style={{ backgroundColor: CAT }}
               >
                 {i + 1}
@@ -197,7 +197,7 @@ export default function WeedsPage() {
         <Card>
           <ul className="space-y-3">
             {herbicideInjury.map((h) => (
-              <li key={h.name} className="rounded-3xl ring-1 ring-leaf-100 bg-white/70 p-4">
+              <li key={h.name} className="rounded-3xl ring-1 ring-leaf-100 bg-white p-4">
                 <p className="font-extrabold text-[15px] text-leaf-900 mb-1">{h.name}</p>
                 <p className="text-[14px] text-leaf-800">{h.symptom}</p>
                 <p className="mt-1.5 text-[13px] font-semibold text-corn-800">⚠ {h.caution}</p>

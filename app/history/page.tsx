@@ -205,7 +205,7 @@ export default function HistoryPage() {
 
                 <button
                   type="button" onClick={() => removeOne(e.id)} aria-label="ลบรายการนี้"
-                  className="shrink-0 grid place-items-center w-9 h-9 rounded-xl text-leaf-400 hover:bg-rose-50 hover:text-rose-600 transition focus-ring"
+                  className="shrink-0 grid place-items-center w-9 h-9 rounded-2xl text-leaf-400 hover:bg-rose-50 hover:text-rose-600 transition focus-ring"
                 >
                   <Trash2 size={17} />
                 </button>

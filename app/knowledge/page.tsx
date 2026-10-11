@@ -140,7 +140,7 @@ export default function KnowledgePage() {
             const IconC = meta.icon;
             return (
               <Link key={`${r.kind}-${r.id}`} href={r.href} className="group focus-ring rounded-4xl">
-                <Card className="h-full transition group-hover:-translate-y-0.5">
+                <Card className="h-full transition group-">
                   <div className="flex items-start gap-3.5">
                     <span className={`grid place-items-center w-11 h-11 rounded-2xl shrink-0 ${meta.cls}`}>
                       <IconC size={20} />

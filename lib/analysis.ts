@@ -28,7 +28,9 @@ export type Finding = {
   link?: { href: string; label: string };
   /** คำแนะนำเร่งด่วนที่ดึงจากฐานข้อมูล */
   quickActions?: string[];
-  source?: 'gemini' | 'yolo';
+  source?: 'gemini' | 'yolo' | 'both';
+  /** id ในคลังความรู้ที่จับคู่ได้ ใช้รวมผลจากหลายแหล่งให้ตรงกัน */
+  kbId?: string;
 };
 
 const severityMap: Record<string, Severity> = {
@@ -85,6 +87,9 @@ export function enrichFinding(raw: RawFinding): Finding {
   if (type === 'pest' || type === 'damage' || type === 'unknown') {
     const pest = matchPest(query);
     if (pest) {
+      finding.nameTh = pest.nameTh;
+      finding.nameEn = pest.nameEn;
+      finding.kbId = pest.id;
       finding.link = { href: `/pests#${pest.id}`, label: `ดูวิธีจัดการ${pest.nameTh}` };
       finding.severity = pest.severity;
       finding.quickActions = [
@@ -100,6 +105,9 @@ export function enrichFinding(raw: RawFinding): Finding {
   if (type === 'disease' || type === 'unknown') {
     const disease = matchDisease(query);
     if (disease) {
+      finding.nameTh = disease.nameTh;
+      finding.nameEn = disease.nameEn || finding.nameEn;
+      finding.kbId = disease.id;
       finding.link = { href: `/diseases#${disease.id}`, label: `ดูวิธีจัดการ${disease.nameTh}` };
       finding.severity = disease.severity;
       finding.quickActions = [
@@ -115,6 +123,7 @@ export function enrichFinding(raw: RawFinding): Finding {
   if (type === 'deficiency' || type === 'unknown') {
     const def = matchDeficiency(query);
     if (def) {
+      finding.kbId = `deficiency-${def.id}`;
       finding.link = { href: `/fertilizer#deficiency-${def.id}`, label: `ดูวิธีแก้อาการขาด${def.nutrient}` };
       finding.quickActions = [def.quickSign, def.fix];
       if (type === 'unknown') finding.type = 'deficiency';
@@ -128,12 +137,14 @@ export function enrichFinding(raw: RawFinding): Finding {
 export const SYSTEM_PROMPT = `คุณคือนักวิชาการโรคพืชและกีฏวิทยาข้าวโพดของกรมวิชาการเกษตรไทย มีหน้าที่ช่วยเกษตรกรผู้ปลูกข้าวโพดเลี้ยงสัตว์วินิจฉัยปัญหาในแปลงจากภาพถ่าย
 
 หลักการที่ต้องยึดอย่างเคร่งครัด:
-1. ตอบเป็นภาษาไทยที่เกษตรกรอ่านเข้าใจ ใช้คำเรียกที่ใช้กันจริงในไทย
+1. ตอบเป็นภาษาไทยที่เกษตรกรอ่านเข้าใจ ใช้คำเรียกที่ใช้กันจริงในไทย น้ำเสียงเป็นกันเองและสุภาพ เหมือนเพื่อนที่รู้เรื่องข้าวโพดช่วยดูให้ ไม่ใช้ศัพท์ทางการหรือภาษาราชการเกินจำเป็น
 2. ถ้าภาพไม่ใช่ข้าวโพด ให้ระบุ is_corn เป็น false และอย่าเดาโรค
 3. ถ้าภาพเบลอ มืด หรือถ่ายไกลเกินไปจนดูไม่ออก ให้บอกตรง ๆ ผ่าน image_quality และให้ค่า confidence ต่ำ
 4. ห้ามเดาชื่อโรคหรือแมลงถ้าหลักฐานในภาพไม่พอ — ให้ใช้ type เป็น "unknown" และอธิบายสิ่งที่เห็นแทน
 5. ค่า confidence ต้องสะท้อนความมั่นใจจริง ไม่ใช่ตัวเลขสวย ๆ
 6. อ้างอิงเฉพาะโรคและแมลงที่พบจริงในประเทศไทย
+7. ชื่อใน name_th ต้องใช้ชื่อตามรายการด้านล่างให้ตรงตัวอักษรทุกครั้ง ห้ามตั้งชื่อใหม่หรือใช้ชื่อเรียกอื่น เพื่อให้ภาพเดียวกันได้ชื่อเดียวกันเสมอ ถ้าไม่ตรงกับรายการใดเลยให้ใช้ type "unknown"
+8. พิจารณาจากสิ่งที่เห็นในภาพเท่านั้น ห้ามอนุมานจากฤดูกาลหรือสภาพอากาศ
 
 รายชื่อแมลงศัตรูข้าวโพดที่พบในไทย: หนอนกระทู้ข้าวโพดลายจุด, หนอนเจาะลำต้นข้าวโพด, หนอนเจาะฝักข้าวโพด, เพลี้ยอ่อนข้าวโพด, เพลี้ยไฟ, มอดดิน, หนอนกระทู้หอม, หนอนกระทู้คอรวง, ตั๊กแตน, ด้วงกุหลาบ, ด้วงงวงข้าวโพด
 
@@ -173,3 +184,64 @@ export const IMAGE_PROMPT = `วิเคราะห์ภาพนี้แล
 - evidence ต้องอธิบายสิ่งที่ "เห็นในภาพจริง" เช่น รูปร่างแผล สี ตำแหน่ง ไม่ใช่ความรู้ทั่วไป
 - next_steps_th เป็นสิ่งที่เกษตรกรควรทำใน 1–7 วันข้างหน้า 2–4 ข้อ สั้น กระชับ ลงมือได้จริง
 - ถ้าต้นดูปกติดี ให้ findings มี 1 รายการ type = "healthy"`;
+
+
+/** โครงสร้าง JSON ที่บังคับให้ Gemini ตอบ (ลดปัญหา JSON เพี้ยน/ฟิลด์หาย) */
+export const RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    is_corn: { type: 'BOOLEAN' },
+    image_quality: { type: 'STRING', enum: ['good', 'blurry', 'too_dark', 'too_far', 'not_plant'] },
+    plant_part: { type: 'STRING' },
+    growth_stage_guess: { type: 'STRING' },
+    findings: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          type: { type: 'STRING', enum: ['pest', 'disease', 'deficiency', 'damage', 'healthy', 'unknown'] },
+          name_th: { type: 'STRING' },
+          name_en: { type: 'STRING' },
+          confidence: { type: 'INTEGER' },
+          severity: { type: 'STRING', enum: ['low', 'medium', 'high', 'critical'] },
+          evidence: { type: 'STRING' },
+          box_2d: { type: 'ARRAY', items: { type: 'INTEGER' } },
+        },
+        required: ['type', 'name_th', 'confidence', 'severity', 'evidence'],
+      },
+    },
+    summary_th: { type: 'STRING' },
+    next_steps_th: { type: 'ARRAY', items: { type: 'STRING' } },
+    need_better_photo: { type: 'BOOLEAN' },
+    photo_tip_th: { type: 'STRING' },
+  },
+  required: ['is_corn', 'image_quality', 'findings', 'summary_th', 'next_steps_th', 'need_better_photo'],
+} as const;
+
+const QUALITY_CAP: Record<string, number> = { good: 100, blurry: 55, too_dark: 55, too_far: 55, not_plant: 20 };
+
+/**
+ * ทำความสะอาดและจัดลำดับผลจาก AI ให้คงเส้นคงวา
+ * - รวมรายการที่ตรงกับคลังความรู้เดียวกัน เก็บอันที่มั่นใจสูงสุด
+ * - จำกัดค่าความมั่นใจตามคุณภาพภาพ (ภาพไม่ชัดห้ามมั่นใจสูง)
+ * - ถ้ามีผล healthy ปนกับโรค/แมลงที่มั่นใจพอ ให้ตัด healthy ทิ้ง (ขัดแย้งกันเอง)
+ */
+export function consolidateFindings(list: Finding[], imageQuality: string): Finding[] {
+  const cap = QUALITY_CAP[imageQuality] ?? 100;
+  const byKey = new Map<string, Finding>();
+  for (const f of list) {
+    const key = f.kbId ?? `${f.type}:${f.nameTh.toLowerCase()}`;
+    const capped = { ...f, confidence: Math.min(f.confidence, cap) };
+    const prev = byKey.get(key);
+    if (!prev || capped.confidence > prev.confidence) {
+      byKey.set(key, { ...capped, box: capped.box ?? prev?.box });
+    } else if (!prev.box && capped.box) {
+      prev.box = capped.box;
+    }
+  }
+  let out = [...byKey.values()].sort((a, b) => b.confidence - a.confidence);
+  if (out.some((f) => f.type !== 'healthy' && f.type !== 'unknown' && f.confidence >= 40)) {
+    out = out.filter((f) => f.type !== 'healthy');
+  }
+  return out.slice(0, 4);
+}

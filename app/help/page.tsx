@@ -31,7 +31,7 @@ export default function HelpPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 mb-8">
-        <Link href="/detect" className="group rounded-4xl bg-leaf-700 text-white p-6 transition hover:-translate-y-0.5 focus-ring">
+        <Link href="/detect" className="group rounded-4xl bg-leaf-700 text-white p-6 transition  focus-ring">
           <span className="grid place-items-center w-12 h-12 rounded-2xl bg-corn-400 text-leaf-900 mb-3.5">
             <ScanLine size={23} />
           </span>
@@ -39,7 +39,7 @@ export default function HelpPage() {
           <p className="text-[13.5px] text-leaf-100">แม่นยำกว่า เพราะ AI เห็นลักษณะแผลและตัวแมลงจริง พร้อมตีกรอบจุดที่พบบนภาพ</p>
         </Link>
 
-        <Link href="/diseases#advisor" className="group rounded-4xl card-glass p-6 transition hover:-translate-y-0.5 focus-ring">
+        <Link href="/diseases#advisor" className="group rounded-4xl card-glass p-6 transition  focus-ring">
           <span className="grid place-items-center w-12 h-12 rounded-2xl bg-corn-100 text-corn-800 mb-3.5">
             <Stethoscope size={23} />
           </span>

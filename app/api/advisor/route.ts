@@ -56,7 +56,8 @@ export async function POST(request: Request) {
       system: SYSTEM_PROMPT,
       parts: [{ text: PROMPT(body) }],
       json: true,
-      temperature: 0.2,
+      temperature: 0,
+      seed: 7,
       maxOutputTokens: 2560,
     });
 
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
       checkInField: parsed.check_in_field_th ?? [],
       askBack: parsed.ask_back_th ?? [],
       disclaimer:
-        'การวินิจฉัยจากอาการโดยไม่เห็นภาพมีความคลาดเคลื่อนสูง ควรถ่ายรูปมาสแกนเพิ่ม หรือปรึกษาเจ้าหน้าที่เกษตรในพื้นที่',
+        'การเดาจากอาการอย่างเดียวพลาดได้ง่าย ถ้าถ่ายรูปมาสแกนเพิ่มหรือถามเจ้าหน้าที่เกษตรในพื้นที่ จะมั่นใจขึ้นนะครับ',
     });
   } catch (err) {
     const status = err instanceof GeminiError ? err.status : 500;

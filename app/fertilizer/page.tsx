@@ -66,7 +66,7 @@ export default function FertilizerPage() {
                   )}
                   <div className="min-w-0">
                     <h3 className="text-[17px] font-extrabold text-leaf-900">ขาด{d.nutrient}</h3>
-                    <p className="mt-1 text-[13.5px] font-semibold text-corn-800 bg-corn-50 rounded-xl px-3 py-1.5 inline-block">
+                    <p className="mt-1 text-[13.5px] font-semibold text-corn-800 bg-corn-50 rounded-2xl px-3 py-1.5 inline-block">
                       {d.quickSign}
                     </p>
                   </div>
@@ -360,7 +360,7 @@ function Field({
           <input
             type="number" min={0} step={step} inputMode="decimal"
             value={value} onChange={(e) => setValue(e.target.value)}
-            className="w-24 rounded-xl bg-white ring-1 ring-leaf-200 px-3 py-2 text-[15px] font-bold tabular-nums text-right focus-ring"
+            className="w-24 rounded-2xl bg-white ring-1 ring-leaf-200 px-3 py-2 text-[15px] font-bold tabular-nums text-right focus-ring"
           />
           <span className="text-[13px] text-leaf-600 w-16">{unit}</span>
         </span>

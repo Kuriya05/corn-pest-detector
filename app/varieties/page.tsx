@@ -60,7 +60,7 @@ export default function VarietiesPage() {
         </h2>
         <div className="grid gap-2.5 md:grid-cols-2">
           {varietyGuide.matchTable.map((m) => (
-            <div key={m.situation} className="rounded-3xl ring-1 ring-leaf-100 bg-white/70 p-4">
+            <div key={m.situation} className="rounded-3xl ring-1 ring-leaf-100 bg-white p-4">
               <p className="text-[12px] font-black uppercase tracking-[0.1em] text-leaf-600 mb-1">{m.situation}</p>
               <p className="text-[16px] font-extrabold" style={{ color: CAT }}>{m.variety}</p>
               <p className="mt-1 text-[13px] text-leaf-700">{m.why}</p>

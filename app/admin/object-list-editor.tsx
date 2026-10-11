@@ -75,7 +75,7 @@ export function ObjectListEditor({
     onChange(next);
   };
 
-  const inputCls = 'w-full rounded-xl bg-white ring-1 ring-leaf-200 px-3 py-2.5 text-[14px] focus-ring';
+  const inputCls = 'w-full rounded-2xl bg-white ring-1 ring-leaf-200 px-3 py-2.5 text-[14px] focus-ring';
 
   return (
     <div className="space-y-3">
@@ -129,7 +129,7 @@ export function ObjectListEditor({
                       />
                       {c.type === 'url' && /^https?:\/\//i.test(v) && (
                         <a href={v} target="_blank" rel="noopener noreferrer"
-                          className="shrink-0 grid place-items-center w-10 rounded-xl bg-white ring-1 ring-leaf-200 text-leaf-700 hover:bg-leaf-50 focus-ring"
+                          className="shrink-0 grid place-items-center w-10 rounded-2xl bg-white ring-1 ring-leaf-200 text-leaf-700 hover:bg-leaf-50 focus-ring"
                           aria-label="เปิดลิงก์ทดสอบ">
                           <ExternalLink size={16} />
                         </a>

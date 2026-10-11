@@ -79,7 +79,7 @@ export default function CalendarPage() {
                   className="w-full text-left focus-ring rounded-3xl"
                 >
                   <div className={`flex items-start gap-3.5 rounded-3xl p-4 transition ${
-                    open ? 'bg-white ring-2 ring-leaf-300 shadow-sm' : 'bg-white/70 ring-1 ring-leaf-100 hover:bg-white'
+                    open ? 'bg-white ring-2 ring-leaf-300 shadow-sm' : 'bg-white ring-1 ring-leaf-100 hover:bg-white'
                   }`}>
                     <span className={`relative z-10 grid place-items-center w-11 h-11 rounded-2xl shrink-0 ${
                       s.critical ? 'bg-corn-400 text-leaf-900' : 'bg-leaf-700 text-corn-300'
