@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ScanLine, Bug, Leaf, FlaskConical, CalendarDays, ArrowRight, ArrowUpRight,
   AlertTriangle, Info, TrendingUp, Stethoscope, BookOpen, Clock, Sprout, Wheat,
-  ShieldCheck, Search, SprayCan, Check, Store, Sparkles, type LucideIcon,
+  ShieldCheck, Search, SprayCan, Check, Store, Sparkles, NotebookPen, MessageCircle, CloudSun, Calculator, type LucideIcon,
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { TodayTip, FieldChecklist, RecentScans } from '@/components/home-widgets';
@@ -32,6 +32,8 @@ const GROUPS: { title: string; desc: string; accent: string; items: Tool[] }[] =
     desc: 'วางแผนตั้งแต่เตรียมดินถึงเก็บเกี่ยว',
     accent: 'bg-leaf-100',
     items: [
+      { href: '/farm', icon: NotebookPen, title: 'สมุดไร่', desc: 'จดแปลง นับอายุ ดูงานของช่วงนี้', tint: 'bg-leaf-100 text-leaf-700' },
+      { href: '/weather', icon: CloudSun, title: 'อากาศและเตือนโรค', desc: 'พยากรณ์ 7 วัน เสี่ยงโรค/แมลง', tint: 'bg-sky-100 text-sky-700' },
       { href: '/fertilizer', icon: FlaskConical, title: 'ปุ๋ยและเครื่องคำนวณ', desc: 'กิโลกรัมต่อไร่ ตามดินและระยะ', tint: 'bg-blue-100 text-blue-700' },
       { href: '/calendar', icon: CalendarDays, title: 'ปฏิทินดูแลไร่', desc: 'ทำอะไรวันไหน พร้อมต้นทุน', tint: 'bg-emerald-100 text-emerald-700' },
       { href: '/weeds', icon: Sprout, title: 'คลังวัชพืช', desc: 'ช่วงวิกฤตที่ต้องปลอดวัชพืช', tint: 'bg-lime-100 text-lime-700' },
@@ -43,6 +45,8 @@ const GROUPS: { title: string; desc: string; accent: string; items: Tool[] }[] =
     desc: 'หาของใช้ในไร่ ขายผลผลิต และค้นเร็ว',
     accent: 'bg-sky-100',
     items: [
+      { href: '/chat', icon: MessageCircle, title: 'ถามน้องข้าวโพด (AI)', desc: 'พิมพ์หรือพูดถามได้เลย', tint: 'bg-pink-100 text-pink-700' },
+      { href: '/profit', icon: Calculator, title: 'คำนวณต้นทุน–กำไร', desc: 'คุ้มไหม จุดคุ้มทุนเท่าไร', tint: 'bg-violet-100 text-violet-700' },
       { href: '/shop', icon: Store, title: 'ซื้อ–ขาย', desc: 'ทางลัดไป Shopee และช่องทางขายผลผลิต', tint: 'bg-orange-100 text-orange-700' },
       { href: '/knowledge', icon: Search, title: 'ค้นหาข้ามทุกคลัง', desc: 'พิมพ์อาการครั้งเดียว ค้นทุกหมวด', tint: 'bg-indigo-100 text-indigo-700' },
       { href: '/history', icon: Clock, title: 'ประวัติการสแกน', desc: 'ติดตามอาการที่ผ่านมา', tint: 'bg-slate-100 text-slate-700' },

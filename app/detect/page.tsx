@@ -10,6 +10,7 @@ import SiteShell from '@/components/site-shell';
 import { Card, Callout, SeverityBadge } from '@/components/ui';
 import type { Finding } from '@/lib/analysis';
 import { speakResult, describeResult } from '@/lib/voice';
+import { useFarm, todayStr } from '@/lib/farm';
 
 type DetectResponse = {
   success: boolean;
@@ -548,6 +549,20 @@ export default function DetectPage() {
 /** คัดลอกสรุปผลไปแปะในไลน์ หรือพิมพ์เก็บไว้ */
 function ResultActions({ result }: { result: DetectResponse }) {
   const [copied, setCopied] = useState(false);
+  const farm = useFarm();
+  const [plotId, setPlotId] = useState('');
+  const [savedTo, setSavedTo] = useState('');
+  const saveToFarm = () => {
+    const plot = farm.plots.find((p) => p.id === (plotId || farm.plots[0]?.id));
+    const top = result.findings?.[0];
+    if (!plot) return;
+    farm.addLog({
+      plotId: plot.id, date: todayStr(), kind: 'scan',
+      title: top ? `สแกนพบ: ${top.nameTh} (${top.confidence}%)` : 'สแกนใบ: ไม่พบความผิดปกติชัดเจน',
+      note: [result.summary, ...(result.nextSteps ?? []).map((s, i) => `${i + 1}. ${s}`)].filter(Boolean).join('\n'),
+    });
+    setSavedTo(plot.name);
+  };
   const text = () => {
     const lines = [
       'ผลวิเคราะห์ข้าวโพดด้วย AI',
@@ -566,7 +581,22 @@ function ResultActions({ result }: { result: DetectResponse }) {
     } catch { /* เบราว์เซอร์ไม่อนุญาต */ }
   };
   return (
-    <div className="mt-3 flex flex-wrap gap-2 no-print">
+    <div className="mt-3 flex flex-wrap items-center gap-2 no-print">
+      {farm.ready && farm.plots.length > 0 && (
+        <>
+          {farm.plots.length > 1 && (
+            <select value={plotId || farm.plots[0].id} onChange={(e) => { setPlotId(e.target.value); setSavedTo(''); }} aria-label="เลือกแปลงที่จะบันทึก" className="rounded-full bg-white ring-1 ring-soil-300 px-3 py-1.5 text-[13px] focus-ring">
+              {farm.plots.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
+          <button type="button" onClick={saveToFarm} disabled={!!savedTo} className="chip-soft inline-flex items-center gap-1.5 rounded-full bg-leaf-700 px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-leaf-800 disabled:bg-leaf-300 focus-ring">
+            {savedTo ? `บันทึกลง “${savedTo}” แล้ว` : 'บันทึกลงสมุดไร่'}
+          </button>
+        </>
+      )}
+      {farm.ready && farm.plots.length === 0 && (
+        <a href="/farm" className="chip-soft inline-flex items-center gap-1.5 rounded-full bg-soil-100 px-3.5 py-1.5 text-[13px] font-medium text-leaf-900 focus-ring">สร้างสมุดไร่เพื่อจดผลสแกน</a>
+      )}
       <button type="button" onClick={() => speakResult(describeResult({ title: 'ผลการวิเคราะห์', findings: result.findings ?? [], summary: result.summary, nextSteps: result.nextSteps, needBetterPhoto: result.needBetterPhoto, photoTip: result.photoTip }), true)} className="chip-soft inline-flex items-center gap-1.5 rounded-full bg-corn-200 px-3.5 py-1.5 text-[13px] font-medium text-leaf-950 focus-ring">
         <Volume2 size={14} /> ฟังผล
       </button>
