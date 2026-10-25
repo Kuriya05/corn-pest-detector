@@ -28,7 +28,7 @@ export function getApiKey(): string {
 }
 
 export function getModels(): string[] {
-  const raw = process.env.GEMINI_MODELS || 'gemini-flash-latest,gemini-3.6-flash,gemini-3.8-flash,gemini-3.1-flash-lite';
+  const raw = process.env.GEMINI_MODELS || 'gemini-3.6-flash,gemini-3.1-flash-lite,gemini-flash-latest,gemini-3.8-flash';
   return raw.split(',').map((m) => m.trim()).filter(Boolean);
 }
 
@@ -96,6 +96,12 @@ async function callOnce(model: string, key: string, opts: CallOptions, strict = 
       throw new GeminiError(`[${model}] โมเดลไม่ได้ตอบข้อความกลับมา (${reason ?? 'unknown'})`, 502);
     }
     return text;
+  } catch (err) {
+    // หมดเวลา — แปลงเป็น 504 เพื่อให้ข้ามไปโมเดลถัดไป แทนการรอโมเดลเดิมซ้ำ
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new GeminiError(`[${model}] ตอบช้าเกินไป (timeout)`, 504);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -107,16 +113,25 @@ export async function callGemini(opts: CallOptions): Promise<{ text: string; mod
   const models = getModels();
   let lastError: unknown = null;
 
+  // งบเวลารวมทั้งหมด (ไม่ให้เกิน maxDuration ของ Vercel) และเวลาสูงสุดต่อการเรียกหนึ่งครั้ง
+  // เพื่อให้โมเดลที่คิวเต็ม/ตอบช้าไม่กินเวลาจนโมเดลสำรองไม่ได้ทำงาน
+  const totalBudget = opts.timeoutMs ?? 90_000;
+  const deadline = Date.now() + totalBudget;
+  const perCall = Math.min(totalBudget, Math.max(20_000, Math.floor(totalBudget / Math.max(2, models.length - 1))));
+
   for (const model of models) {
     for (let attempt = 0; attempt < 3; attempt++) {
+      const remaining = deadline - Date.now();
+      if (remaining < 3_000) break;
+      const callOpts = { ...opts, timeoutMs: Math.min(perCall, remaining) };
       try {
         let text: string;
         try {
-          text = await callOnce(model, key, opts, true);
+          text = await callOnce(model, key, callOpts, true);
         } catch (err) {
           // 400 อาจมาจาก schema/seed ที่โมเดลรุ่นนี้ไม่รองรับ — ลองใหม่แบบเรียบง่ายหนึ่งครั้ง
           const st = err instanceof GeminiError ? err.status : 0;
-          if (st === 400 && (opts.schema || opts.seed !== undefined)) text = await callOnce(model, key, opts, false);
+          if (st === 400 && (opts.schema || opts.seed !== undefined)) text = await callOnce(model, key, callOpts, false);
           else throw err;
         }
         return { text, model };
@@ -130,6 +145,8 @@ export async function callGemini(opts: CallOptions): Promise<{ text: string; mod
         if (status === 400) break;
         // โมเดลนี้ไม่มีแล้ว — ข้ามไปโมเดลถัดไปทันที
         if (status === 404) break;
+        // ตอบช้าเกินเวลา — เปลี่ยนไปโมเดลถัดไปทันที
+        if (status === 504) break;
         // คิวเต็ม — ลองซ้ำครั้งเดียวแล้วเปลี่ยนไปโมเดลถัดไปเลย จะได้ไม่ให้ผู้ใช้รอนาน
         if (status === 503) {
           if (attempt === 0) { await sleep(400); continue; }
