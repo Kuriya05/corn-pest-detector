@@ -64,13 +64,22 @@ function makePostgres(): Db {
 }
 
 function makeSqlite(): Db {
+  // บน Vercel ห้ามใช้ SQLite: ระบบไฟล์เป็นแบบอ่านอย่างเดียวและถูกล้างทุกครั้งที่ server รีสตาร์ต
+  // เดิมโค้ดจะสลับไปใช้ฐานข้อมูลในหน่วยความจำแบบเงียบ ๆ ทำให้ข้อมูลที่บันทึกหายไปเอง
+  if (process.env.VERCEL) {
+    throw new Error(
+      '[db] ไม่พบตัวแปรเชื่อมต่อฐานข้อมูล (POSTGRES_URL / DATABASE_URL / SUPABASE_DB_URL) บน Vercel — ' +
+      'ตรวจการเชื่อม Supabase ใน Vercel → Settings → Environment Variables แล้ว redeploy'
+    );
+  }
   let client: Client;
+  const dir = join(process.cwd(), '..', 'database');
   try {
-    const dir = join(process.cwd(), '..', 'database');
     mkdirSync(dir, { recursive: true });
     client = createClient({ url: `file:${join(dir, 'corn-pest.db')}` });
-  } catch {
-    client = createClient({ url: 'file::memory:?cache=shared' });
+  } catch (err) {
+    // ไม่ใช้ฐานข้อมูลในหน่วยความจำอีกต่อไป เพราะข้อมูลจะหายเมื่อปิดแอป
+    throw new Error(`[db] เปิดไฟล์ SQLite ที่ ${dir} ไม่ได้: ${(err as Error).message}`);
   }
   return {
     kind: 'sqlite',
@@ -85,7 +94,10 @@ function makeSqlite(): Db {
 }
 
 export function getClient(): Db {
-  if (!_db) _db = PG_URL ? makePostgres() : makeSqlite();
+  if (!_db) {
+    _db = PG_URL ? makePostgres() : makeSqlite();
+    console.log(`[db] ใช้ฐานข้อมูล: ${_db.kind === 'postgres' ? 'Supabase Postgres' : 'SQLite (database/corn-pest.db)'}`);
+  }
   return _db;
 }
 
