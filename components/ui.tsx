@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { normSeverity } from '@/lib/normalize';
-import { ChevronDown, ExternalLink, AlertTriangle, Info, BookMarked } from 'lucide-react';
+import { ChevronDown, ExternalLink, AlertTriangle, Info, BookMarked, Loader2, RotateCw } from 'lucide-react';
 import type { Severity, SourceRef } from '@/lib/data/types';
 import { severityLabel, severityStyle } from '@/lib/data/types';
 
@@ -180,6 +180,36 @@ export function EmptyState({ title, hint, icon }: { title: string; hint?: string
       {hint && <p className="mt-1.5 text-[13.5px] text-leaf-600 max-w-md mx-auto">{hint}</p>}
     </div>
   );
+}
+
+/** ข้อความระหว่างรอข้อมูลจากฐานข้อมูล / แจ้งเมื่อโหลดไม่สำเร็จ — คืน null เมื่อพร้อมแสดงข้อมูล */
+export function LoadState({
+  loading, error, onRetry, label = 'ข้อมูล',
+}: { loading: boolean; error?: string | null; onRetry?: () => void; label?: string }) {
+  if (loading) {
+    return (
+      <div role="status" aria-live="polite" className="rounded-4xl border border-leaf-100 bg-white/70 py-14 px-6 text-center">
+        <Loader2 size={30} className="mx-auto mb-3 animate-spin text-leaf-500" aria-hidden />
+        <p className="font-extrabold text-leaf-900">กำลังโหลด{label}จากฐานข้อมูล…</p>
+        <p className="mt-1.5 text-[13.5px] text-leaf-600">กรุณารอสักครู่ ครั้งแรกอาจใช้เวลานานกว่าปกติเล็กน้อย</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div role="alert" className="rounded-4xl border-2 border-dashed border-rose-200 bg-rose-50/60 py-12 px-6 text-center">
+        <div className="mx-auto mb-3 grid place-items-center w-14 h-14 rounded-3xl bg-rose-100 text-rose-600"><AlertTriangle size={24} /></div>
+        <p className="font-extrabold text-leaf-900">โหลด{label}ไม่สำเร็จ</p>
+        <p className="mt-1.5 text-[13.5px] text-leaf-700 max-w-md mx-auto">{error}</p>
+        {onRetry && (
+          <button type="button" onClick={onRetry} className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-leaf-900 px-5 py-2.5 text-[14px] font-medium text-white hover:bg-leaf-800 focus-ring">
+            <RotateCw size={15} /> ลองโหลดใหม่
+          </button>
+        )}
+      </div>
+    );
+  }
+  return null;
 }
 
 /** ตารางสารเคมี — แสดงเป็นการ์ดบนมือถือ ตารางบนจอใหญ่ */

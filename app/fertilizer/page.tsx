@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { FlaskConical, Calculator, Sprout, Droplets, AlertTriangle, Info, Layers, Scale } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { PageHeader, Card, Chip, Callout, BulletList, SourceList } from '@/components/ui';
+import { PageHeader, Card, Chip, Callout, BulletList, SourceList, LoadState } from '@/components/ui';
 import {
   soilTypePlans, omLevels, pLevels, kLevels, formulas, buildSoilTestPlan, kgFertilizer,
-  deficiencies as seedDeficiencies, nutrientUptake, fertilizerNotes, fertilizerWarnings, fertilizerSources,
+  nutrientUptake, fertilizerNotes, fertilizerWarnings, fertilizerSources,
 } from '@/lib/data/fertilizer';
 import { useCollection } from '@/lib/use-collection';
 import type { Deficiency } from '@/lib/data/fertilizer';
@@ -15,15 +15,17 @@ import type { Deficiency } from '@/lib/data/fertilizer';
 const nf = (n: number) => (Math.round(n * 10) / 10).toLocaleString('th-TH');
 
 export default function FertilizerPage() {
-  const { items: deficiencies } = useCollection<Deficiency>('deficiencies', seedDeficiencies);
+  const { items: deficiencies, loading, error, reload } = useCollection<Deficiency>('deficiencies');
   const [tab, setTab] = useState<'soil' | 'test' | 'convert'>('soil');
 
+  // เลื่อนไปยังรายการตามลิงก์ (#id) หลังโหลดข้อมูลจากฐานข้อมูลเสร็จ
   useEffect(() => {
+    if (loading) return;
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
     if (hash.startsWith('deficiency-')) {
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     }
-  }, []);
+  }, [loading]);
 
   return (
     <SiteShell>
@@ -50,10 +52,11 @@ export default function FertilizerPage() {
       {tab === 'convert' && <ConvertTab />}
 
       <section className="mt-12">
-        <h2 className="text-[22px] font-extrabold text-leaf-900 mb-1.5">สังเกตอาการขาดธาตุอาหาร ({deficiencies.length} ธาตุ)</h2>
+        <h2 className="text-[22px] font-extrabold text-leaf-900 mb-1.5">สังเกตอาการขาดธาตุอาหาร{!loading && !error && ` (${deficiencies.length} ธาตุ)`}</h2>
         <p className="text-[14px] text-leaf-700 mb-5">
           อาการขาดธาตุหลายอย่างหน้าตาคล้ายโรค ดูจุดสังเกตด้านล่างเพื่อแยกให้ออกก่อนตัดสินใจซื้อสารเคมี
         </p>
+        <LoadState loading={loading} error={error} onRetry={reload} label="ข้อมูลธาตุอาหาร" />
         <div className="grid gap-3.5 md:grid-cols-2">
           {deficiencies.map((d) => (
             <article key={d.id} id={`deficiency-${d.id}`} className="scroll-mt-24">

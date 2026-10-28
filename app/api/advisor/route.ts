@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { callGemini, parseJsonLoose, GeminiError } from '@/lib/gemini';
-import { SYSTEM_PROMPT, enrichFinding, type RawFinding } from '@/lib/analysis';
+import { buildSystemPrompt, loadKnowledgeBase, enrichFinding, type RawFinding } from '@/lib/analysis';
 
 export const runtime = 'nodejs';
 export const maxDuration = 90;
@@ -13,6 +13,44 @@ type Body = {
   plantPart?: string;
   province?: string;
 };
+
+/** โครงสร้าง JSON ที่บังคับให้ AI ตอบ — ลดโอกาสได้คำตอบผิดรูปแบบ */
+const SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    findings: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          type: { type: 'STRING', enum: ['pest', 'disease', 'deficiency', 'unknown'] },
+          name_th: { type: 'STRING' },
+          name_en: { type: 'STRING' },
+          confidence: { type: 'INTEGER' },
+          severity: { type: 'STRING', enum: ['low', 'medium', 'high', 'critical'] },
+          evidence: { type: 'STRING' },
+        },
+        required: ['type', 'name_th', 'confidence', 'severity', 'evidence'],
+      },
+    },
+    summary_th: { type: 'STRING' },
+    next_steps_th: { type: 'ARRAY', items: { type: 'STRING' } },
+    check_in_field_th: { type: 'ARRAY', items: { type: 'STRING' } },
+    ask_back_th: { type: 'ARRAY', items: { type: 'STRING' } },
+  },
+  required: ['findings', 'summary_th', 'next_steps_th'],
+};
+
+type Parsed = {
+  findings?: RawFinding[];
+  summary_th?: string;
+  next_steps_th?: string[];
+  check_in_field_th?: string[];
+  ask_back_th?: string[];
+};
+
+const strList = (v: unknown, max: number) =>
+  (Array.isArray(v) ? v : []).map((x) => String(x ?? '').trim()).filter(Boolean).slice(0, max);
 
 const PROMPT = (b: Body) => `เกษตรกรแจ้งอาการในแปลงข้าวโพดดังนี้
 
@@ -52,31 +90,34 @@ export async function POST(request: Request) {
       );
     }
 
+    const kb = await loadKnowledgeBase();
     const result = await callGemini({
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(kb),
       parts: [{ text: PROMPT(body) }],
       json: true,
+      schema: SCHEMA,
       temperature: 0,
       seed: 7,
       maxOutputTokens: 2560,
+      validate: (text) => {
+        const r = parseJsonLoose<Parsed>(text);
+        if (!r || typeof r !== 'object') throw new Error('ไม่ใช่ JSON object');
+      },
     });
 
-    const parsed = parseJsonLoose<{
-      findings?: RawFinding[];
-      summary_th?: string;
-      next_steps_th?: string[];
-      check_in_field_th?: string[];
-      ask_back_th?: string[];
-    }>(result.text);
+    const parsed = parseJsonLoose<Parsed>(result.text);
 
     return NextResponse.json({
       success: true,
       model: result.model,
-      findings: (parsed.findings ?? []).slice(0, 3).map(enrichFinding),
-      summary: parsed.summary_th ?? '',
-      nextSteps: parsed.next_steps_th ?? [],
-      checkInField: parsed.check_in_field_th ?? [],
-      askBack: parsed.ask_back_th ?? [],
+      findings: (Array.isArray(parsed.findings) ? parsed.findings : [])
+        .filter((f) => f && typeof f === 'object')
+        .slice(0, 3)
+        .map((f) => enrichFinding(f, kb)),
+      summary: String(parsed.summary_th ?? ''),
+      nextSteps: strList(parsed.next_steps_th, 6),
+      checkInField: strList(parsed.check_in_field_th, 6),
+      askBack: strList(parsed.ask_back_th, 3),
       disclaimer:
         'การเดาจากอาการอย่างเดียวพลาดได้ง่าย ถ้าถ่ายรูปมาสแกนเพิ่มหรือถามเจ้าหน้าที่เกษตรในพื้นที่ จะมั่นใจขึ้นนะครับ',
     });
@@ -87,6 +128,8 @@ export async function POST(request: Request) {
     const friendly =
       status === 503 ? 'ระบบ AI กำลังมีผู้ใช้งานหนาแน่น กรุณาลองใหม่อีกครั้งในอีกสักครู่'
       : status === 401 || status === 403 ? 'คีย์ API ไม่ถูกต้อง กรุณาตรวจสอบค่า GEMINI_API_KEY'
+      : status === 429 ? 'ใช้งานเกินโควต้าที่กำหนดในช่วงนี้ กรุณาลองใหม่ภายหลัง'
+      : status === 502 || status === 504 ? 'AI ตอบช้าหรือตอบผิดรูปแบบหลายครั้งติดกัน กรุณาลองใหม่อีกครั้ง'
       : message;
     return NextResponse.json({ success: false, error: friendly }, { status: status >= 400 ? status : 500 });
   }

@@ -97,11 +97,18 @@ export async function POST(request: Request) {
 
     const prompt = `คลังความรู้ของระบบ:\n${knowledge}\n\n${plotInfo}\n\n${history ? `บทสนทนาก่อนหน้า:\n${history}\n\n` : ''}คำถามล่าสุดของผู้ใช้: ${last.text}`;
 
-    const result = await callGemini({ system: SYSTEM, parts: [{ text: prompt }], json: true, schema: SCHEMA, temperature: 0.3, maxOutputTokens: 1536, timeoutMs: 50_000 });
+    const result = await callGemini({
+      system: SYSTEM, parts: [{ text: prompt }], json: true, schema: SCHEMA,
+      temperature: 0.2, maxOutputTokens: 1536, timeoutMs: 50_000,
+      validate: (text) => {
+        const r = parseJsonLoose<{ answer?: unknown }>(text);
+        if (!String(r?.answer ?? '').trim()) throw new Error('ไม่มีข้อความตอบ');
+      },
+    });
     const parsed = parseJsonLoose<{ answer?: string; links?: { label?: string; href?: string }[]; followUps?: string[] }>(result.text);
 
     const answerText = String(parsed.answer ?? '').trim().slice(0, 3000);
-    const links: { label: string; href: string }[] = (parsed.links ?? [])
+    const links: { label: string; href: string }[] = (Array.isArray(parsed.links) ? parsed.links : [])
       .map((l) => ({ label: clip(l.label, 60), href: String(l.href ?? '').trim() }))
       .filter((l) => l.label && allowed.has(l.href))
       .slice(0, 3);
@@ -116,7 +123,7 @@ export async function POST(request: Request) {
       model: result.model,
       answer: answerText || 'ขอโทษครับ ตอบไม่ได้ตอนนี้ ลองถามใหม่อีกครั้งนะครับ',
       links,
-      followUps: (parsed.followUps ?? []).map((f) => clip(f, 80)).filter(Boolean).slice(0, 3),
+      followUps: (Array.isArray(parsed.followUps) ? parsed.followUps : []).map((f) => clip(f, 80)).filter(Boolean).slice(0, 3),
     });
   } catch (err) {
     const status = err instanceof GeminiError ? err.status : 500;

@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Sprout, Leaf, Search, ChevronDown, AlertTriangle, Eye, Shield, FlaskConical, ListChecks, Clock } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';
-import { weeds as seedWeeds, weedOverview, herbicideInjury } from '@/lib/data/weeds';
+import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState, LoadState } from '@/components/ui';
+import { weedOverview, herbicideInjury } from '@/lib/data/weeds';
 import { useCollection } from '@/lib/use-collection';
 import type { Weed } from '@/lib/data/types';
 
@@ -19,18 +19,21 @@ const groups = [
 ] as const;
 
 export default function WeedsPage() {
-  const { items } = useCollection<Weed>('weeds', seedWeeds);
+  const { items, loading, error, reload } = useCollection<Weed>('weeds');
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<(typeof groups)[number]['id']>('all');
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // เลื่อนไปยังรายการตามลิงก์ (#id) หลังโหลดข้อมูลจากฐานข้อมูลเสร็จ
   useEffect(() => {
+    if (loading) return;
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
     if (hash) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpenId(hash);
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     }
-  }, []);
+  }, [loading]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -128,7 +131,9 @@ export default function WeedsPage() {
         </div>
       </div>
 
-      {list.length === 0 ? (
+      {loading || error ? (
+        <LoadState loading={loading} error={error} onRetry={reload} label="ข้อมูลวัชพืช" />
+      ) : list.length === 0 ? (
         <EmptyState icon={<Search size={24} />} title="ไม่พบวัชพืชที่ตรงกับคำค้น" hint="ลองพิมพ์ลักษณะที่เห็น เช่น ยางขาว ดอกเหลือง ลำต้นสามเหลี่ยม" />
       ) : (
         <div className="space-y-3.5">

@@ -49,9 +49,13 @@ type CallOptions = {
   schema?: Record<string, unknown>;
   /** seed คงที่ ช่วยให้ภาพเดิมได้คำตอบเดิม */
   seed?: number;
+  /** ตรวจคำตอบก่อนรับ (เช่น แปลง JSON) — ถ้าโยน error จะลองใหม่/เปลี่ยนโมเดล แทนที่จะส่งคำตอบเสียให้ผู้ใช้ */
+  validate?: (text: string) => void;
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** หน่วงแบบสุ่มเล็กน้อย กันคำขอหลายตัวยิงซ้ำพร้อมกันจนโดนจำกัดอัตราอีก */
+const jitter = (ms: number) => ms + Math.floor(Math.random() * ms * 0.3);
 
 async function callOnce(model: string, key: string, opts: CallOptions, strict = true): Promise<string> {
   const controller = new AbortController();
@@ -134,10 +138,19 @@ export async function callGemini(opts: CallOptions): Promise<{ text: string; mod
           if (st === 400 && (opts.schema || opts.seed !== undefined)) text = await callOnce(model, key, callOpts, false);
           else throw err;
         }
+        if (opts.validate) {
+          try {
+            opts.validate(text);
+          } catch (e) {
+            throw new GeminiError(`[${model}] คำตอบไม่อยู่ในรูปแบบที่ใช้ได้: ${e instanceof Error ? e.message : e}`, 502);
+          }
+        }
         return { text, model };
       } catch (err) {
         lastError = err;
         const status = err instanceof GeminiError ? err.status : 0;
+        // บันทึกไว้ดูว่าทำไมถึงเปลี่ยนโมเดล (ผลจากโมเดลต่างรุ่นอาจไม่ตรงกัน)
+        console.warn(`[gemini] ${model} ครั้งที่ ${attempt + 1} ไม่สำเร็จ (${status}): ${err instanceof Error ? err.message.slice(0, 200) : err}`);
 
         // คีย์ผิด/หมดสิทธิ์ — ไม่ต้องลองต่อ
         if (status === 401 || status === 403) throw err;
@@ -147,14 +160,14 @@ export async function callGemini(opts: CallOptions): Promise<{ text: string; mod
         if (status === 404) break;
         // ตอบช้าเกินเวลา — เปลี่ยนไปโมเดลถัดไปทันที
         if (status === 504) break;
-        // คิวเต็ม — ลองซ้ำครั้งเดียวแล้วเปลี่ยนไปโมเดลถัดไปเลย จะได้ไม่ให้ผู้ใช้รอนาน
-        if (status === 503) {
-          if (attempt === 0) { await sleep(400); continue; }
+        // คิวเต็ม หรือคำตอบว่าง/JSON เสีย — ลองซ้ำครั้งเดียวแล้วเปลี่ยนไปโมเดลถัดไปเลย จะได้ไม่ให้ผู้ใช้รอนาน
+        if (status === 503 || status === 502) {
+          if (attempt === 0) { await sleep(jitter(400)); continue; }
           break;
         }
         // โควต้า/ข้อผิดพลาดชั่วคราว — หน่วงแล้วลองใหม่
         if (status === 429 || status === 500 || status === 0) {
-          await sleep(700 * (attempt + 1));
+          await sleep(jitter(700 * (attempt + 1)));
           continue;
         }
         break;

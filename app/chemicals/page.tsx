@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';
-import { allChemicals as seedChemicals, chemicalCategories, chemicalGuide } from '@/lib/data/chemicals';
+import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState, LoadState } from '@/components/ui';
+import { chemicalCategories, chemicalGuide } from '@/lib/data/chemicals';
 import { useCollection } from '@/lib/use-collection';
 import type { ChemicalEntry } from '@/lib/data/chemicals';
 
@@ -32,18 +32,21 @@ const targetHref: Record<string, string> = {
 };
 
 export default function ChemicalsPage() {
-  const { items } = useCollection<ChemicalEntry>('chemicals', seedChemicals);
+  const { items, loading, error, reload } = useCollection<ChemicalEntry>('chemicals');
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<string>('all');
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // เลื่อนไปยังรายการตามลิงก์ (#id) หลังโหลดข้อมูลจากฐานข้อมูลเสร็จ
   useEffect(() => {
+    if (loading) return;
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
     if (hash) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpenId(hash);
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     }
-  }, []);
+  }, [loading]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -102,7 +105,9 @@ export default function ChemicalsPage() {
         </div>
       )}
 
-      {list.length === 0 ? (
+      {loading || error ? (
+        <LoadState loading={loading} error={error} onRetry={reload} label="ข้อมูลสาร" />
+      ) : list.length === 0 ? (
         <EmptyState icon={<Search size={24} />} title="ไม่พบสารที่ตรงกับคำค้น" hint="ลองพิมพ์ชื่อศัตรูพืชแทน เช่น หนอนเจาะลำต้น หรือ ราน้ำค้าง" />
       ) : (
         <div className="space-y-3.5">

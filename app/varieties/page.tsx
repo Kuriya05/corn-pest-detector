@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Wheat, Search, ChevronDown, ShieldCheck, AlertTriangle, Sparkles, ShoppingBag, Target, Sprout } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';
-import { varieties as seedVarieties, varietyGuide } from '@/lib/data/varieties';
+import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState, LoadState } from '@/components/ui';
+import { varietyGuide } from '@/lib/data/varieties';
 import { useCollection } from '@/lib/use-collection';
 import type { Variety } from '@/lib/data/types';
 
@@ -21,18 +21,21 @@ const levelStyle: Record<string, string> = {
 };
 
 export default function VarietiesPage() {
-  const { items } = useCollection<Variety>('varieties', seedVarieties);
+  const { items, loading, error, reload } = useCollection<Variety>('varieties');
   const [query, setQuery] = useState('');
   const [crop, setCrop] = useState<(typeof cropTypes)[number]>('all');
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // เลื่อนไปยังรายการตามลิงก์ (#id) หลังโหลดข้อมูลจากฐานข้อมูลเสร็จ
   useEffect(() => {
+    if (loading) return;
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
     if (hash) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpenId(hash);
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     }
-  }, []);
+  }, [loading]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -91,7 +94,9 @@ export default function VarietiesPage() {
         </div>
       </div>
 
-      {list.length === 0 ? (
+      {loading || error ? (
+        <LoadState loading={loading} error={error} onRetry={reload} label="ข้อมูลพันธุ์ข้าวโพด" />
+      ) : list.length === 0 ? (
         <EmptyState icon={<Search size={24} />} title="ไม่พบพันธุ์ที่ตรงกับคำค้น" hint="ลองพิมพ์ชื่อศูนย์วิจัย เช่น นครสวรรค์ สุวรรณ ชัยนาท" />
       ) : (
         <div className="space-y-3.5">

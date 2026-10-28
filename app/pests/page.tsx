@@ -7,8 +7,7 @@ import {
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { Callout, BulletList, SourceList, ChemicalTable, EmptyState } from '@/components/ui';
-import { pests as seedPests } from '@/lib/data/pests';
+import { Callout, BulletList, SourceList, ChemicalTable, EmptyState, LoadState } from '@/components/ui';
 import { useCollection } from '@/lib/use-collection';
 import { normSeverity } from '@/lib/normalize';
 import type { Pest, Severity } from '@/lib/data/types';
@@ -57,7 +56,7 @@ const FAV_KEY = 'maize_pest_favs';
 const no = (i: number) => String(i + 1).padStart(2, '0');
 
 export default function PestsPage() {
-  const { items: pests } = useCollection<Pest>('pests', seedPests);
+  const { items: pests, loading, error, reload } = useCollection<Pest>('pests');
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<'all' | GroupId>('all');
   const [level, setLevel] = useState<'all' | Severity>('all');
@@ -110,6 +109,7 @@ export default function PestsPage() {
 
   const surprise = () => {
     const pool = list.length ? list : pests;
+    if (!pool.length) return;
     setOpenId(pool[Math.floor(Math.random() * pool.length)].id);
   };
 
@@ -206,7 +206,9 @@ export default function PestsPage() {
 
       {/* ---------- รายการ ---------- */}
       <p className="mt-6 mb-3 text-[13px] text-leaf-600">แสดง {list.length} จาก {pests.length} ชนิด</p>
-      {list.length === 0 ? (
+      {loading || error ? (
+        <LoadState loading={loading} error={error} onRetry={reload} label="ข้อมูลศัตรูพืช" />
+      ) : list.length === 0 ? (
         <EmptyState icon={<Search size={24} />} title="ยังไม่เจอที่ตรงกับที่ค้นหา" hint="ลองล้างตัวกรอง หรือค้นด้วยคำอื่น เช่น หนอน เพลี้ย ด้วง หรืออาการที่พบในแปลง" />
       ) : view === 'grid' ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

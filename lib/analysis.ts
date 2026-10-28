@@ -1,7 +1,7 @@
-import { matchPest } from './data/pests';
-import { matchDisease } from './data/diseases';
-import { matchDeficiency } from './data/fertilizer';
-import type { Severity } from './data/types';
+import { getCollection } from './store';
+import { normSeverity } from './normalize';
+import type { Severity, Pest, Disease } from './data/types';
+import type { Deficiency } from './data/fertilizer';
 
 export type FindingType = 'pest' | 'disease' | 'deficiency' | 'damage' | 'healthy' | 'unknown';
 
@@ -64,8 +64,64 @@ function normalizeConfidence(value: unknown): number {
   return Math.max(0, Math.min(100, Math.round(scaled)));
 }
 
+/** คลังความรู้ที่ใช้จับคู่ผลของ AI — อ่านจากฐานข้อมูล (รวมรายการที่แอดมินเพิ่ม/แก้) */
+export type KnowledgeBase = { pests: Pest[]; diseases: Disease[]; deficiencies: Deficiency[] };
+
+const KB_TTL_MS = 60_000;
+let kbCache: { at: number; kb: KnowledgeBase } | null = null;
+
+export async function loadKnowledgeBase(): Promise<KnowledgeBase> {
+  if (kbCache && Date.now() - kbCache.at < KB_TTL_MS) return kbCache.kb;
+  const [pests, diseases, deficiencies] = await Promise.all([
+    getCollection('pests'), getCollection('diseases'), getCollection('deficiencies'),
+  ]);
+  const kb = {
+    pests: pests as unknown as Pest[],
+    diseases: diseases as unknown as Disease[],
+    deficiencies: deficiencies as unknown as Deficiency[],
+  };
+  kbCache = { at: Date.now(), kb };
+  return kb;
+}
+
+/** ตัดช่องว่าง วงเล็บ และเครื่องหมายออก เพื่อให้ชื่อที่สะกดต่างกันเล็กน้อยเทียบกันได้ */
+const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/[\s()[\]/,.–—_-]+/g, '');
+const stripParen = (s: unknown) => String(s ?? '').replace(/\s*\(.*?\)\s*/g, ' ').trim();
+
+type Matchable = { nameTh?: string; nameEn?: string; nutrient?: string; matchKeywords?: string[]; aliases?: string[] };
+
+/**
+ * หารายการในคลังที่ตรงกับชื่อจาก AI มากที่สุด
+ * 1) ชื่อตรงกันทั้งชื่อ (ไทยหรืออังกฤษ) 2) คีย์เวิร์ดที่ยาวที่สุดที่อยู่ในชื่อ
+ * — ไม่จับคู่คำสั้น ๆ เช่น "โรค" "หนอน" ที่ทำให้ได้รายการแรกของคลังแบบผิด ๆ
+ */
+function bestMatch<T extends Matchable>(items: T[], nameTh: string, nameEn: string): T | undefined {
+  const th = norm(nameTh);
+  const thCore = norm(stripParen(nameTh));
+  const en = norm(nameEn);
+  const q = `${th}|${en}`;
+  if (!th && !en) return undefined;
+
+  for (const it of items) {
+    const names = [it.nameTh, stripParen(it.nameTh), it.nutrient && `ขาด${it.nutrient}`, ...(it.aliases ?? [])].map(norm).filter(Boolean);
+    if ((th && (names.includes(th) || names.includes(thCore))) || (en && norm(it.nameEn) === en)) return it;
+  }
+
+  let best: T | undefined;
+  let bestScore = 0;
+  for (const it of items) {
+    for (const raw of it.matchKeywords ?? []) {
+      const k = norm(raw);
+      if (k.length < 3) continue;
+      const score = q.includes(k) ? k.length : (th.length >= 4 && k.includes(th)) ? th.length - 1 : 0;
+      if (score > bestScore) { bestScore = score; best = it; }
+    }
+  }
+  return best;
+}
+
 /** เติมข้อมูลจากคลังความรู้ให้ผลที่ AI ตรวจพบ */
-export function enrichFinding(raw: RawFinding): Finding {
+export function enrichFinding(raw: RawFinding, kb: KnowledgeBase): Finding {
   const type = typeMap[String(raw.type ?? '').toLowerCase()] ?? 'unknown';
   const nameTh = (raw.name_th || raw.name_en || 'ไม่สามารถระบุได้').trim();
   const nameEn = raw.name_en?.trim();
@@ -82,20 +138,20 @@ export function enrichFinding(raw: RawFinding): Finding {
     source: 'gemini',
   };
 
-  const query = [nameTh, nameEn].filter(Boolean).join(' ');
+  const enQuery = nameEn ?? '';
 
   if (type === 'pest' || type === 'damage' || type === 'unknown') {
-    const pest = matchPest(query);
+    const pest = bestMatch(kb.pests, nameTh, enQuery);
     if (pest) {
       finding.nameTh = pest.nameTh;
       finding.nameEn = pest.nameEn;
       finding.kbId = pest.id;
       finding.link = { href: `/pests#${pest.id}`, label: `ดูวิธีจัดการ${pest.nameTh}` };
-      finding.severity = pest.severity;
+      finding.severity = normSeverity(pest.severity);
       finding.quickActions = [
         ...(pest.threshold ? [`เกณฑ์ตัดสินใจพ่นสาร: ${pest.threshold}`] : []),
-        ...pest.cultural.slice(0, 2),
-        ...(pest.chemicals[0] ? [`สารที่แนะนำ: ${pest.chemicals[0].name} ${pest.chemicals[0].formulation ?? ''} อัตรา ${pest.chemicals[0].rate}`] : []),
+        ...(pest.cultural ?? []).slice(0, 2),
+        ...(pest.chemicals?.[0] ? [`สารที่แนะนำ: ${pest.chemicals[0].name} ${pest.chemicals[0].formulation ?? ''} อัตรา ${pest.chemicals[0].rate}`] : []),
       ];
       if (type === 'unknown' || type === 'damage') finding.type = 'pest';
       return finding;
@@ -103,16 +159,16 @@ export function enrichFinding(raw: RawFinding): Finding {
   }
 
   if (type === 'disease' || type === 'unknown') {
-    const disease = matchDisease(query);
+    const disease = bestMatch(kb.diseases, nameTh, enQuery);
     if (disease) {
       finding.nameTh = disease.nameTh;
       finding.nameEn = disease.nameEn || finding.nameEn;
       finding.kbId = disease.id;
       finding.link = { href: `/diseases#${disease.id}`, label: `ดูวิธีจัดการ${disease.nameTh}` };
-      finding.severity = disease.severity;
+      finding.severity = normSeverity(disease.severity);
       finding.quickActions = [
-        ...disease.cultural.slice(0, 2),
-        ...(disease.chemicals[0] ? [`สารที่แนะนำ: ${disease.chemicals[0].name} ${disease.chemicals[0].formulation ?? ''} อัตรา ${disease.chemicals[0].rate}`] : []),
+        ...(disease.cultural ?? []).slice(0, 2),
+        ...(disease.chemicals?.[0] ? [`สารที่แนะนำ: ${disease.chemicals[0].name} ${disease.chemicals[0].formulation ?? ''} อัตรา ${disease.chemicals[0].rate}`] : []),
         ...(disease.warnings?.slice(0, 1) ?? []),
       ];
       if (type === 'unknown') finding.type = 'disease';
@@ -121,11 +177,11 @@ export function enrichFinding(raw: RawFinding): Finding {
   }
 
   if (type === 'deficiency' || type === 'unknown') {
-    const def = matchDeficiency(query);
+    const def = bestMatch(kb.deficiencies, nameTh, enQuery);
     if (def) {
       finding.kbId = `deficiency-${def.id}`;
       finding.link = { href: `/fertilizer#deficiency-${def.id}`, label: `ดูวิธีแก้อาการขาด${def.nutrient}` };
-      finding.quickActions = [def.quickSign, def.fix];
+      finding.quickActions = [def.quickSign, def.fix].filter(Boolean);
       if (type === 'unknown') finding.type = 'deficiency';
       return finding;
     }
@@ -134,7 +190,8 @@ export function enrichFinding(raw: RawFinding): Finding {
   return finding;
 }
 
-export const SYSTEM_PROMPT = `คุณคือนักวิชาการโรคพืชและกีฏวิทยาข้าวโพดของกรมวิชาการเกษตรไทย มีหน้าที่ช่วยเกษตรกรผู้ปลูกข้าวโพดเลี้ยงสัตว์วินิจฉัยปัญหาในแปลงจากภาพถ่าย
+/** หลักการวินิจฉัย (ส่วนคงที่) — ใช้ผ่าน buildSystemPrompt เพื่อเติมรายชื่อจากฐานข้อมูล */
+const SYSTEM_PROMPT = `คุณคือนักวิชาการโรคพืชและกีฏวิทยาข้าวโพดของกรมวิชาการเกษตรไทย มีหน้าที่ช่วยเกษตรกรผู้ปลูกข้าวโพดเลี้ยงสัตว์วินิจฉัยปัญหาในแปลงจากภาพถ่าย
 
 หลักการที่ต้องยึดอย่างเคร่งครัด:
 1. ตอบเป็นภาษาไทยที่เกษตรกรอ่านเข้าใจ ใช้คำเรียกที่ใช้กันจริงในไทย น้ำเสียงเป็นกันเองและสุภาพ เหมือนเพื่อนที่รู้เรื่องข้าวโพดช่วยดูให้ ไม่ใช้ศัพท์ทางการหรือภาษาราชการเกินจำเป็น
@@ -144,14 +201,23 @@ export const SYSTEM_PROMPT = `คุณคือนักวิชาการ�
 5. ค่า confidence ต้องสะท้อนความมั่นใจจริง ไม่ใช่ตัวเลขสวย ๆ
 6. อ้างอิงเฉพาะโรคและแมลงที่พบจริงในประเทศไทย
 7. ชื่อใน name_th ต้องใช้ชื่อตามรายการด้านล่างให้ตรงตัวอักษรทุกครั้ง ห้ามตั้งชื่อใหม่หรือใช้ชื่อเรียกอื่น เพื่อให้ภาพเดียวกันได้ชื่อเดียวกันเสมอ ถ้าไม่ตรงกับรายการใดเลยให้ใช้ type "unknown"
-8. พิจารณาจากสิ่งที่เห็นในภาพเท่านั้น ห้ามอนุมานจากฤดูกาลหรือสภาพอากาศ
+8. พิจารณาจากสิ่งที่เห็นในภาพเท่านั้น ห้ามอนุมานจากฤดูกาลหรือสภาพอากาศ`;
 
-รายชื่อแมลงศัตรูข้าวโพดที่พบในไทย: หนอนกระทู้ข้าวโพดลายจุด, หนอนเจาะลำต้นข้าวโพด, หนอนเจาะฝักข้าวโพด, เพลี้ยอ่อนข้าวโพด, เพลี้ยไฟ, มอดดิน, หนอนกระทู้หอม, หนอนกระทู้คอรวง, ตั๊กแตน, ด้วงกุหลาบ, ด้วงงวงข้าวโพด
+/**
+ * คำสั่งระบบพร้อมรายชื่อจากฐานข้อมูล — AI ต้องตอบชื่อตามนี้ตรงตัว ผลจึงจับคู่คลังได้ทุกครั้งและภาพเดิมได้ชื่อเดิม
+ * (รายการที่แอดมินเพิ่มในฐานข้อมูลจะถูกส่งให้ AI รู้จักอัตโนมัติ)
+ */
+export function buildSystemPrompt(kb: KnowledgeBase): string {
+  const list = (names: (string | undefined)[]) => [...new Set(names.map((n) => n?.trim()).filter(Boolean))].join(', ');
+  return `${SYSTEM_PROMPT}
 
-รายชื่อโรคข้าวโพดที่พบในไทย: โรคราน้ำค้าง (ใบลาย), โรคใบไหม้แผลใหญ่, โรคใบไหม้แผลเล็ก, โรคราสนิม, โรคใบจุด, โรคกาบและใบไหม้, โรคต้นเน่าจากแบคทีเรีย, โรคต้นเน่าจากฟิวซาเรียม, โรคฝักเน่า–เมล็ดเน่า, โรคใบด่าง/ใบด่างแคระ (ไวรัส), โรคราเขม่าดำ
+รายชื่อแมลงและสัตว์ศัตรูข้าวโพดที่พบในไทย: ${list(kb.pests.map((p) => p.nameTh))}
+
+รายชื่อโรคข้าวโพดที่พบในไทย: ${list(kb.diseases.map((d) => d.nameTh))}
 หมายเหตุ: ไม่มีรายงานทางการของโรค Gray leaf spot (Cercospora) ในข้าวโพดในประเทศไทย อย่าวินิจฉัยโรคนี้
 
-อาการขาดธาตุอาหารที่พบบ่อย: ขาดไนโตรเจน, ขาดฟอสฟอรัส, ขาดโพแทสเซียม, ขาดแมกนีเซียม, ขาดสังกะสี, ขาดโบรอน, ขาดกำมะถัน, ขาดแคลเซียม`;
+อาการขาดธาตุอาหาร (ใช้ชื่อรูปแบบ "ขาด…"): ${list(kb.deficiencies.map((d) => `ขาด${d.nutrient}`))}`;
+}
 
 export const IMAGE_PROMPT = `วิเคราะห์ภาพนี้แล้วตอบกลับเป็น JSON ตามโครงสร้างนี้เท่านั้น ห้ามมีข้อความอื่นนอก JSON:
 

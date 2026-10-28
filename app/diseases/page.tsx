@@ -7,9 +7,8 @@ import {
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { Callout, BulletList, SourceList, ChemicalTable, EmptyState } from '@/components/ui';
+import { Callout, BulletList, SourceList, ChemicalTable, EmptyState, LoadState } from '@/components/ui';
 import { SymptomAdvisor } from '@/components/symptom-advisor';
-import { diseases as seedDiseases } from '@/lib/data/diseases';
 import { useCollection } from '@/lib/use-collection';
 import { normSeverity } from '@/lib/normalize';
 import type { Disease, Severity } from '@/lib/data/types';
@@ -44,7 +43,7 @@ const FAV_KEY = 'maize_disease_favs';
 const no = (i: number) => String(i + 1).padStart(2, '0');
 
 export default function DiseasesPage() {
-  const { items: diseases } = useCollection<Disease>('diseases', seedDiseases);
+  const { items: diseases, loading, error, reload } = useCollection<Disease>('diseases');
   const [tab, setTab] = useState<'library' | 'advisor'>('library');
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<'all' | KindId>('all');
@@ -97,6 +96,7 @@ export default function DiseasesPage() {
 
   const surprise = () => {
     const pool = list.length ? list : diseases;
+    if (!pool.length) return;
     setOpenId(pool[Math.floor(Math.random() * pool.length)].id);
   };
 
@@ -208,7 +208,9 @@ export default function DiseasesPage() {
 
           {/* ---------- รายการ ---------- */}
           <p className="mt-6 mb-3 text-[13px] text-leaf-600">แสดง {list.length} จาก {diseases.length} โรค</p>
-          {list.length === 0 ? (
+          {loading || error ? (
+        <LoadState loading={loading} error={error} onRetry={reload} label="ข้อมูลโรค" />
+      ) : list.length === 0 ? (
             <EmptyState icon={<Search size={24} />} title="ยังไม่เจอที่ตรงกับที่ค้นหา" hint="ลองล้างตัวกรอง หรือพิมพ์ลักษณะแผลที่เห็น เช่น แผลยาว จุดกลม ตุ่มนูน ใบด่าง" />
           ) : view === 'grid' ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

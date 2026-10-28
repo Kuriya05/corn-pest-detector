@@ -7,7 +7,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { callGemini, parseJsonLoose, GeminiError } from '@/lib/gemini';
 import { createHash } from 'crypto';
-import { SYSTEM_PROMPT, IMAGE_PROMPT, RESPONSE_SCHEMA, enrichFinding, consolidateFindings, type RawFinding, type Finding } from '@/lib/analysis';
+import { buildSystemPrompt, loadKnowledgeBase, IMAGE_PROMPT, RESPONSE_SCHEMA, enrichFinding, consolidateFindings, type KnowledgeBase, type RawFinding, type Finding } from '@/lib/analysis';
 
 const execAsync = promisify(exec);
 
@@ -66,7 +66,7 @@ function resolvePython(projectRoot: string): string | null {
 }
 
 /** เรียกโมเดล YOLO ที่เทรนเอง เพื่อช่วยตีกรอบตำแหน่งแมลง (ไม่บังคับ) */
-async function runYolo(imagePath: string): Promise<{ ok: boolean; boxes: Finding[]; error?: string }> {
+async function runYolo(imagePath: string, kb: KnowledgeBase): Promise<{ ok: boolean; boxes: Finding[]; error?: string }> {
   if (process.env.YOLO_ENABLED === 'false') return { ok: false, boxes: [], error: 'ปิดการใช้งานไว้' };
 
   const root = process.cwd();
@@ -97,7 +97,7 @@ async function runYolo(imagePath: string): Promise<{ ok: boolean; boxes: Finding
       const known = YOLO_DISEASES[p.class];
       // โมเดลนี้เทรนมาตรวจ "โรค" — จับคู่คลังความรู้เฉพาะชนิดที่ตรงกันจริง (กัน keyword กว้าง ๆ เช่น blight/rot จับผิดโรค)
       if (known?.query) {
-        const enriched = enrichFinding({ type: 'disease', name_th: known.th, name_en: known.query, confidence: p.confidence });
+        const enriched = enrichFinding({ type: 'disease', name_th: known.th, name_en: known.query, confidence: p.confidence }, kb);
         return { ...enriched, source: 'yolo' as const, box };
       }
       return {
@@ -170,9 +170,10 @@ export async function POST(request: Request) {
 
     // เรียก Gemini และ YOLO พร้อมกัน — Gemini เป็นตัวหลัก, YOLO รอเพิ่มได้ไม่เกิน YOLO_GRACE_MS หลัง Gemini เสร็จ
     // (โหลด PyTorch ครั้งแรกอาจช้า ต้องไม่ลากให้ผู้ใช้รอนาน)
-    const yoloPromise = runYolo(tempPath);
+    const kb = await loadKnowledgeBase();
+    const yoloPromise = runYolo(tempPath, kb);
     const aiResult = await callGemini({
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(kb),
       parts: [{ text: IMAGE_PROMPT + userContext(part, hint) }, { inline_data: { mime_type: mime, data: base64 } }],
       json: true,
       schema: RESPONSE_SCHEMA as unknown as Record<string, unknown>,
@@ -180,6 +181,10 @@ export async function POST(request: Request) {
       temperature: 0,
       maxOutputTokens: 3072,
       timeoutMs: 100_000,
+      validate: (text) => {
+        const r = parseJsonLoose<GeminiResult>(text);
+        if (!r || typeof r !== 'object' || !Array.isArray(r.findings)) throw new Error('ไม่มีรายการ findings');
+      },
     });
     const yoloResult = await Promise.race([
       yoloPromise,
@@ -190,7 +195,9 @@ export async function POST(request: Request) {
 
     const parsed = parseJsonLoose<GeminiResult>(aiResult.text);
     const imageQuality = parsed.image_quality ?? 'good';
-    const aiFindings = (parsed.findings ?? []).map(enrichFinding);
+    // ภาพไม่ใช่ข้าวโพด — ไม่แสดงชื่อโรค/แมลงที่โมเดลอาจเดามา
+    const rawFindings = parsed.is_corn === false ? [] : (parsed.findings ?? []);
+    const aiFindings = rawFindings.filter((f) => f && typeof f === 'object').map((f) => enrichFinding(f, kb));
 
     // ใช้ YOLO ยืนยัน/เติมกรอบให้ผลของ Gemini: ผลที่ตรงกันมั่นใจขึ้น, YOLO ที่ Gemini ไม่เห็นด้วยเก็บเป็นข้อมูลเสริม
     const aiKeys = new Set(aiFindings.map((f) => f.kbId).filter(Boolean));
@@ -203,7 +210,7 @@ export async function POST(request: Request) {
       }
     }
     const findings = consolidateFindings(aiFindings, imageQuality);
-    const extraYolo = yoloResult.boxes.filter((bx) => !aiKeys.has(bx.kbId)).slice(0, 3);
+    const extraYolo = parsed.is_corn === false ? [] : yoloResult.boxes.filter((bx) => !aiKeys.has(bx.kbId)).slice(0, 3);
 
     const body = {
       success: true,
@@ -243,6 +250,7 @@ export async function POST(request: Request) {
       status === 503 ? 'ระบบ AI กำลังมีผู้ใช้งานหนาแน่น กรุณาลองใหม่อีกครั้งในอีกสักครู่'
       : status === 429 ? 'ใช้งานเกินโควต้าที่กำหนดในช่วงนี้ กรุณาลองใหม่ภายหลัง'
       : status === 401 || status === 403 ? 'คีย์ API ไม่ถูกต้องหรือหมดสิทธิ์ใช้งาน กรุณาตรวจสอบค่า GEMINI_API_KEY'
+      : status === 502 || status === 504 ? 'AI ตอบช้าหรือตอบผิดรูปแบบหลายครั้งติดกัน กรุณาลองใหม่อีกครั้ง'
       : message;
 
     return NextResponse.json({ success: false, error: friendly, detail: message }, { status: status >= 400 ? status : 500 });

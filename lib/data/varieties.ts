@@ -1,4 +1,5 @@
 import type { Variety, SourceRef } from './types';
+import { commercialVarieties } from './varieties-commercial';
 
 export const VSRC: Record<string, SourceRef> = {
   nswVariety: { label: 'ศูนย์วิจัยพืชไร่นครสวรรค์ — องค์ความรู้ข้าวโพดเลี้ยงสัตว์และพันธุ์แนะนำ', url: 'https://www.doa.go.th/fc/nakhonsawan/?page_id=2321' },
@@ -445,6 +446,8 @@ export const varieties: Variety[] = [
     sources: [VSRC.ku],
     matchKeywords: ['เกษตรศาสตร์ 2'],
   },
+  // พันธุ์การค้าของบริษัทเอกชน (แยกไฟล์ไว้เพราะข้อมูลที่ยืนยันได้มีน้อยกว่าพันธุ์ราชการ)
+  ...commercialVarieties,
 ];
 
 export const varietyById = (id: string) => varieties.find((v) => v.id === id);

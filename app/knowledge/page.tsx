@@ -4,14 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, Search, Bug, Leaf, FlaskConical, ArrowRight, Sprout, Wheat, ShieldCheck, SprayCan } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
-import { PageHeader, Card, Chip, EmptyState, SeverityBadge } from '@/components/ui';
-import { pests as seedPests } from '@/lib/data/pests';
-import { diseases as seedDiseases } from '@/lib/data/diseases';
-import { deficiencies as seedDeficiencies } from '@/lib/data/fertilizer';
-import { weeds as seedWeeds } from '@/lib/data/weeds';
-import { varieties as seedVarieties } from '@/lib/data/varieties';
-import { biologicals as seedBio } from '@/lib/data/biologicals';
-import { allChemicals as seedChemicals, type ChemicalEntry } from '@/lib/data/chemicals';
+import { PageHeader, Card, Chip, EmptyState, SeverityBadge, LoadState } from '@/components/ui';
+import type { ChemicalEntry } from '@/lib/data/chemicals';
 import { useCollection } from '@/lib/use-collection';
 import type { Severity, Pest, Disease, Weed, Variety, Biological } from '@/lib/data/types';
 import type { Deficiency } from '@/lib/data/fertilizer';
@@ -38,13 +32,24 @@ const kindMeta = {
 } as const;
 
 export default function KnowledgePage() {
-  const { items: pests } = useCollection<Pest>('pests', seedPests);
-  const { items: diseases } = useCollection<Disease>('diseases', seedDiseases);
-  const { items: deficiencies } = useCollection<Deficiency>('deficiencies', seedDeficiencies);
-  const { items: weeds } = useCollection<Weed>('weeds', seedWeeds);
-  const { items: varieties } = useCollection<Variety>('varieties', seedVarieties);
-  const { items: biologicals } = useCollection<Biological>('biologicals', seedBio);
-  const { items: chemicals } = useCollection<ChemicalEntry>('chemicals', seedChemicals);
+  const pestsQ = useCollection<Pest>('pests');
+  const pests = pestsQ.items;
+  const diseasesQ = useCollection<Disease>('diseases');
+  const diseases = diseasesQ.items;
+  const deficienciesQ = useCollection<Deficiency>('deficiencies');
+  const deficiencies = deficienciesQ.items;
+  const weedsQ = useCollection<Weed>('weeds');
+  const weeds = weedsQ.items;
+  const varietiesQ = useCollection<Variety>('varieties');
+  const varieties = varietiesQ.items;
+  const biologicalsQ = useCollection<Biological>('biologicals');
+  const biologicals = biologicalsQ.items;
+  const chemicalsQ = useCollection<ChemicalEntry>('chemicals');
+  const chemicals = chemicalsQ.items;
+  const queries = [pestsQ, diseasesQ, deficienciesQ, weedsQ, varietiesQ, biologicalsQ, chemicalsQ];
+  const loading = queries.some((q) => q.loading);
+  const error = queries.find((q) => q.error)?.error ?? null;
+  const reload = () => queries.forEach((q) => { if (q.error) q.reload(); });
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<'all' | Row['kind']>('all');
 
@@ -104,7 +109,7 @@ export default function KnowledgePage() {
     <SiteShell>
       <PageHeader
         eyebrow="Knowledge Base"
-        title={`คลังความรู้รวม ${rows.length} รายการ`}
+        title={loading || error ? 'คลังความรู้รวม' : `คลังความรู้รวม ${rows.length} รายการ`}
         description="พิมพ์อาการที่เห็นครั้งเดียว ค้นได้ทั้งแมลง โรค วัชพืช พันธุ์ข้าวโพด ชีวภัณฑ์ สารป้องกันกำจัด และอาการขาดธาตุอาหาร"
         icon={<BookOpen size={26} strokeWidth={2.3} />}
       />
@@ -127,7 +132,9 @@ export default function KnowledgePage() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading || error ? (
+        <LoadState loading={loading} error={error} onRetry={reload} label="คลังความรู้" />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Search size={24} />}
           title="ไม่พบข้อมูลที่ตรงกับคำค้น"

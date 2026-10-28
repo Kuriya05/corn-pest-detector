@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck, Search, ChevronDown, Target, ListChecks, AlertTriangle, BadgeCheck, FlaskConical } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
 import { ImageGallery, toImages } from '@/components/image-gallery';
-import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState } from '@/components/ui';
-import { biologicals as seedBio } from '@/lib/data/biologicals';
+import { PageHeader, Card, Chip, Callout, BulletList, SourceList, EmptyState, LoadState } from '@/components/ui';
 import { useCollection } from '@/lib/use-collection';
 import type { Biological } from '@/lib/data/types';
 
@@ -14,19 +13,22 @@ const CAT = '#0d9488';
 const kinds = ['all', 'เชื้อรา', 'แบคทีเรีย', 'ไวรัส', 'แมลงตัวห้ำ', 'แมลงตัวเบียน', 'ไส้เดือนฝอย', 'โปรโตซัว', 'สารสกัดจากพืช'] as const;
 
 export default function BiologicalsPage() {
-  const { items } = useCollection<Biological>('biologicals', seedBio);
+  const { items, loading, error, reload } = useCollection<Biological>('biologicals');
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<(typeof kinds)[number]>('all');
   const [maizeOnly, setMaizeOnly] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // เลื่อนไปยังรายการตามลิงก์ (#id) หลังโหลดข้อมูลจากฐานข้อมูลเสร็จ
   useEffect(() => {
+    if (loading) return;
     const hash = decodeURIComponent(window.location.hash.replace('#', ''));
     if (hash) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpenId(hash);
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     }
-  }, []);
+  }, [loading]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,7 +81,9 @@ export default function BiologicalsPage() {
         </label>
       </div>
 
-      {list.length === 0 ? (
+      {loading || error ? (
+        <LoadState loading={loading} error={error} onRetry={reload} label="ข้อมูลชีวภัณฑ์" />
+      ) : list.length === 0 ? (
         <EmptyState icon={<Search size={24} />} title="ไม่พบชีวภัณฑ์ที่ตรงกับคำค้น" hint="ลองพิมพ์ชื่อศัตรูพืชที่ต้องการควบคุม" />
       ) : (
         <div className="space-y-3.5">
