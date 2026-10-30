@@ -5,9 +5,10 @@ import Link from 'next/link';
 import {
   ScanLine, Bug, Leaf, FlaskConical, CalendarDays, ArrowRight, ArrowUpRight,
   AlertTriangle, Info, TrendingUp, Stethoscope, BookOpen, Clock, Sprout, Wheat,
-  ShieldCheck, Search, SprayCan, Check, Store, Sparkles, NotebookPen, MessageCircle, CloudSun, Calculator, type LucideIcon,
+  ShieldCheck, Search, SprayCan, Check, Store, Sparkles, NotebookPen, MessageCircle, CloudSun, Calculator, Gamepad2, type LucideIcon,
 } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
+import PestQuiz from '@/components/pest-quiz';
 import { TodayTip, FieldChecklist, RecentScans } from '@/components/home-widgets';
 import { alertsForMonth, thaiMonths } from '@/lib/data/alerts';
 import { economics } from '@/lib/data/calendar';
@@ -159,6 +160,18 @@ export default function HomePage() {
           <FieldChecklist />
           <RecentScans />
         </div>
+      </section>
+
+      {/* ---------- เกมทายศัตรูข้าวโพด ---------- */}
+      <section id="quiz" className="mt-14 scroll-mt-24">
+        <div className="flex items-baseline justify-between gap-3 mb-5">
+          <div>
+            <h2 className="flex items-center gap-2 text-[26px] text-leaf-950"><Gamepad2 size={24} className="text-corn-600" /> เกมทายศัตรูข้าวโพด</h2>
+            <p className="mt-1 text-[14.5px] text-soil-600">ดูภาพ อ่านอาการ แล้วทายว่าคืออะไร ตอบแล้วได้ความรู้และวิธีจัดการไปด้วย</p>
+          </div>
+          <Link href="/quiz" className="hidden sm:inline-flex items-center gap-1 text-[14px] text-leaf-700 hover:text-leaf-950 shrink-0">เล่นรอบยาว 10 ข้อ <ArrowRight size={15} /></Link>
+        </div>
+        <PestQuiz rounds={5} compact />
       </section>
 
       {/* ---------- เตือนภัยประจำเดือน ---------- */}
