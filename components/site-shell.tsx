@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Home, ScanLine, Bug, Leaf, FlaskConical, CalendarDays, Clock, BookOpen,
-  HelpCircle, Menu, X, Sprout, ExternalLink, Wheat, ShieldCheck, LogOut, LogIn, SprayCan, ChevronDown, Store, NotebookPen, MessageCircle, CloudSun, Calculator,
+  HelpCircle, Menu, X, Sprout, ExternalLink, Wheat, ShieldCheck, LogOut, LogIn, SprayCan, ChevronDown, Store, NotebookPen, MessageCircle, CloudSun, Calculator, Gamepad2,
 } from 'lucide-react';
 import { navItems, moreItems, type NavItem } from './nav-items';
 import AccessibilityPanel from './accessibility-panel';
@@ -13,7 +13,7 @@ import AccessibilityPanel from './accessibility-panel';
 const icons: Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>> = {
   home: Home, scan: ScanLine, bug: Bug, leaf: Leaf, flask: FlaskConical,
   calendar: CalendarDays, clock: Clock, book: BookOpen, help: HelpCircle,
-  sprout: Sprout, wheat: Wheat, shield: ShieldCheck, spray: SprayCan, store: Store, notebook: NotebookPen, chat: MessageCircle, cloud: CloudSun, calc: Calculator,
+  sprout: Sprout, wheat: Wheat, shield: ShieldCheck, spray: SprayCan, store: Store, notebook: NotebookPen, chat: MessageCircle, cloud: CloudSun, calc: Calculator, game: Gamepad2,
 };
 
 function Icon({ name, ...rest }: { name: string; size?: number; className?: string; strokeWidth?: number }) {

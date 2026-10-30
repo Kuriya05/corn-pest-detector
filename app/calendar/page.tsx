@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { CalendarDays, Droplets, Sprout, Leaf, TrendingUp, AlertTriangle, CircleDot, Wheat, Coins } from 'lucide-react';
 import SiteShell from '@/components/site-shell';
+import PlantingPlanner from '@/components/planting-planner';
 import { PageHeader, Card, Chip, Callout, BulletList, SourceList } from '@/components/ui';
 import {
   seasons, growthStages, waterCritical, waterNeed, herbicides, sprayTips, economics, calendarSources,
@@ -23,6 +24,13 @@ export default function CalendarPage() {
         description="ตั้งแต่เตรียมดินจนถึงเก็บเกี่ยว — ทำอะไร เมื่อไหร่ และช่วงไหนที่พลาดไม่ได้ อ้างอิงคำแนะนำกรมวิชาการเกษตร"
         icon={<CalendarDays size={26} strokeWidth={2.3} />}
       />
+
+      {/* ---------- วางแผนจากวันปลูก ---------- */}
+      <section id="planner" className="mb-10 scroll-mt-24">
+        <h2 className="text-[22px] font-extrabold text-leaf-900 mb-1.5">วางแผนจากวันปลูกของคุณ</h2>
+        <p className="text-[14px] text-leaf-700 mb-4">ใส่วันปลูก ระบบจะบอกว่าแต่ละช่วงตรงกับวันที่เท่าไร ต้องทำอะไร และช่วงไหนห้ามพลาด</p>
+        <PlantingPlanner />
+      </section>
 
       {/* ---------- ฤดูปลูก ---------- */}
       <section className="mb-10">

@@ -28,6 +28,7 @@ export const moreItems: NavItem[] = [
   { href: '/profit', label: 'คำนวณต้นทุน–กำไร', short: 'กำไร', icon: 'calc', desc: 'ปลูกรอบนี้คุ้มไหม จุดคุ้มทุนเท่าไร' },
   { href: '/shop', label: 'ซื้อ–ขาย', short: 'ซื้อขาย', icon: 'store', desc: 'ช่องทางซื้อของใช้ในไร่ และขายผลผลิต' },
   { href: '/history', label: 'ประวัติการสแกน', short: 'ประวัติ', icon: 'clock', desc: 'ผลตรวจย้อนหลังในเครื่องนี้' },
+  { href: '/quiz', label: 'เกมทายศัตรูข้าวโพด', short: 'เกม', icon: 'game', desc: 'ทายแมลง โรค วัชพืชจากอาการ สะสมคะแนน' },
   { href: '/knowledge', label: 'ค้นหาข้ามทุกคลัง', short: 'ค้นหา', icon: 'book', desc: 'พิมพ์อาการแล้วค้นทุกหมวดพร้อมกัน' },
   { href: '/help', label: 'คู่มือการใช้งาน', short: 'คู่มือ', icon: 'help', desc: 'วิธีถ่ายรูปและใช้ระบบ' },
 ];
